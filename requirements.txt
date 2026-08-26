@@ -1,0 +1,17 @@
+pandas
+numpy
+scipy
+scikit-learn
+statsmodels
+hmmlearn
+torch
+arch
+shap
+yfinance
+python-bcb
+pyyaml
+matplotlib
+seaborn
+jupyter
+pytest
+rpy2
