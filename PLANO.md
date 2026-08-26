@@ -93,12 +93,7 @@ acompanhamento. Marque `[x]` ao concluir.
 - [ ] Entrega do projeto/artigo
 - [ ] Entrega/apresentação do pôster
 
----
-
-## Riscos e pontos de atenção
-- Tickers de futuros no Yahoo Finance (`ZS=F`, `KC=F`) podem ter histórico mais curto ou
-  gaps — validar cobertura 2005–2024 na Semana 2; se necessário, usar contrato contínuo B3
-  ou fonte alternativa (ex.: CEPEA/ESALQ para preços físicos agro).
+--
 - `rpy2` requer R instalado e compatível com a versão do Python/venv — testar a ponte
   Python↔R cedo (Semana 8) para não perder tempo depois.
 - O cronograma está agressivo (14 semanas para todo o pipeline). Semana 14 é buffer —
