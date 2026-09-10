@@ -14,6 +14,7 @@ fredapi
 python-dotenv
 requests
 truststore
+pandas_market_calendars
 beautifulsoup4
 lxml
 openpyxl

@@ -27,23 +27,41 @@ acompanhamento. Marque `[x]` ao concluir.
       (`src/data/validation.py::check_coverage`)
 
 ## Semana 3 — 09 a 15/09 — Engenharia de features
-- [x] `src/data/features.py`: Garman-Klass, GARCH(1,1) univariado expansivo (`arch`,
-      refit mensal), retornos multi-horizonte (1/5/21d), skew/curtose móveis (21/63d),
-      spread de Corwin-Schultz (proxy de bid-ask, ver Pendências), volume normalizado,
-      vol. implícita (`^VIX` + Ibov/Bloomberg)
-- [x] Tratamento de missing (`align_and_fill_ohlc`: interpolação linear até 3 dias úteis,
-      senão mantém `NaN` estrutural — trim final fica para o dataset de modelagem)
-- [x] Testes de estacionariedade (ADF, KPSS) e filtro de multicolinearidade (VIF > 10)
-      em `src/data/feature_selection.py`, rodado no painel *pooled* (todos os ativos)
+- [x] `src/data/features.py`: Garman-Klass, GARCH(1,1) (refit periódico dos parâmetros +
+      atualização diária da variância condicional com retornos observados, sem lookahead),
+      retornos multi-horizonte (1/5/21d), skew/curtose móveis (21/63d), spread de
+      Corwin-Schultz (proxy de bid-ask), volume normalizado, vol. implícita
+      (`^VIX` + Ibov/Bloomberg)
+- [x] Tratamento de missing **corrigido** (`align_and_fill_ohlc`: forward-fill causal até
+      3 dias de pregão reais, nunca interpolação/backward-fill — ver Pendências) sobre o
+      **calendário real de pregão da B3** (`pandas_market_calendars`), não dias-úteis
+      genéricos
+- [x] Soja/café (`ZS=F`/`KC=F`) **convertidos para BRL-equivalente** (câmbio do próprio
+      dia) antes de qualquer feature — carteira medida na perspectiva de um investidor
+      brasileiro (ver Pendências)
+- [x] Testes de estacionariedade (ADF, KPSS) **por ativo separadamente** e filtro de
+      multicolinearidade/correlação (VIF > 10, pooled) em `src/data/feature_selection.py`
+      — diagnóstico exploratório na amostra completa, seleção final entra por split
+      walk-forward (Semana 6)
 - [x] `notebooks/02_feature_engineering.ipynb`: gera `data/processed/features.parquet`
-      (4568 linhas × 112 colunas = 16 features × 7 ativos) e os relatórios de
-      estacionariedade/correlação/VIF em `reports/tables/`
+      (4336 linhas × 112 colunas = 16 features × 7 ativos, calendário B3) +
+      `data/processed/portfolio_return.parquet` (retorno agregado equal-weighted, BRL,
+      preparação para o HMM) + relatórios em `reports/tables/`
 
 ## Semana 4 — 16 a 22/09 — Detecção de regimes (HMM)
-- [ ] `src/models/hmm.py`: HMM gaussiano (`hmmlearn`), grade de 2–4 estados, seleção por BIC/AIC
-- [ ] Viterbi (in-sample) e Forward (prospectivo, sem lookahead bias)
-- [ ] Robustez via bootstrap em blocos
-- [ ] `notebooks/03_hmm_regimes.ipynb`: caracterizar regimes (persistência, médias, covariâncias)
+- [x] `src/models/hmm.py`: HMM gaussiano covariância cheia (`hmmlearn`), grade de 2–4
+      estados via BIC/AIC (`select_n_states`), Baum-Welch com múltiplas inicializações
+      (`fit_gaussian_hmm`)
+- [x] Viterbi in-sample (`viterbi_decode`) e Forward prospectivo sem lookahead
+      (`forward_filter`, implementado na mão — `hmmlearn` só expõe smoothing
+      forward-backward publicamente)
+- [x] Robustez via bootstrap em blocos (`block_bootstrap_stability`): estabilidade do nº
+      de estados (BIC) + estabilidade da sequência de regimes (Viterbi realinhado por
+      volatilidade, % concordância + Adjusted Rand Index)
+- [x] `notebooks/03_hmm_regimes.ipynb`: fit único/exploratório (in-sample) nas duas
+      especificações (3D: retorno+vol21+vol63; 2D robustez: retorno+vol21), caracteriza
+      regimes (persistência, médias, duração esperada) — walk-forward de verdade fica
+      para a Semana 6, ver Pendências
 
 ## Semana 5 — 23 a 29/09 — Arquitetura LSTM
 - [ ] `src/models/lstm.py`: LSTM 2 camadas (64/32), dropout 0,3, one-hot do regime como feature,
@@ -144,10 +162,17 @@ acompanhamento. Marque `[x]` ao concluir.
   ponta nesta sessão por faltar `FRED_API_KEY` no `.env` local. Copie `.env.example`
   para `.env`, preencha a chave e rode a última célula de `01_data_collection.ipynb`
   (ou o notebook inteiro) para gerar `data/raw/macro_fred.parquet`.
-- **Gap real encontrado em USD/BRL**: a validação aponta um gap crítico genuíno de 17
-  dias úteis em USD/BRL (`BRL=X`) entre 01/08/2008 e 25/08/2008 (crise financeira de
-  2008) — não é um problema do código, mas vale checar se esse buraco afeta o HMM na
-  Semana 4 (pode exigir interpolação ou nota metodológica).
+- **Gap real em USD/BRL muda silenciosamente a composição da carteira (achado, não
+  corrigido ainda)**: `BRL=X` tem um gap genuíno de 17 dias de pregão (01/08 a 25/08/2008,
+  crise financeira) maior que os 3 dias do forward-fill, então fica `NaN` em
+  `features.parquet` nesse trecho — e como `ZS=F`/`KC=F` são convertidos usando esse
+  mesmo câmbio, ficam `NaN` também. Mas `portfolio_return.parquet` é construído com
+  `.mean(axis=1)`, que **ignora `NaN` por padrão** — nesse trecho o "retorno da carteira"
+  vira silenciosamente a média só dos 4 equities restantes (composição efetiva 4/7, não
+  7/7), sem nenhum sinalizador. Decisão pendente: manter esse comportamento (prático,
+  mas silencioso) ou forçar `NaN` explícito no retorno agregado quando qualquer
+  constituinte estiver faltando (mais conservador, perde mais dados, mas com política
+  explícita por ativo/feature, como preferido nesta rodada).
 - **Cobertura parcial de equities/CEPEA-soja é esperada, não um bug**: `covers_requested_range=False`
   para SLCE3.SA/JBSS32.SA/MBRF3.SA/SMTO3.SA e para a série CEPEA-soja só reflete que
   esses ativos/BDRs foram listados ou a série começou depois de 2005 (ex.: JBSS32.SA
@@ -176,9 +201,58 @@ acompanhamento. Marque `[x]` ao concluir.
   de `NaN` bem no período mais recente/de teste se fosse usado como feature principal;
   por isso `implied_vol_br` no pipeline vem do Bloomberg (cobertura completa até 2024).
   Guardar a URL aqui para uma eventual análise de robustez/comparação futura.
-- **`garman_klass_vol_63d` descartado por VIF (Semana 3)**: o filtro de
-  multicolinearidade (limiar 10) removeu essa coluna do conjunto de features retido —
-  redundante com `garman_klass_vol_21d`/`realized_vol_*d`/`garch_cond_vol`. Ver
-  `reports/tables/feature_vif_selection.csv` para o relatório completo (mantidas vs.
-  descartadas) e `feature_stationarity.csv`/`feature_correlation.csv` para os demais
-  diagnósticos da Passada 2.
+- **VIF descarta uma feature de vol redundante (varia entre rodadas)**: o filtro de
+  multicolinearidade (limiar 10, diagnóstico exploratório) sempre derruba uma das
+  medidas de volatilidade (já foi `garman_klass_vol_63d`, depois da correção do
+  calendário/câmbio passou a ser `realized_vol_21d`) — esperado, várias medidas de vol
+  são naturalmente correlacionadas entre si. Ver `reports/tables/feature_vif_selection.csv`
+  para o resultado da rodada mais recente; a seleção final de verdade é por split
+  walk-forward (Semana 6), não este diagnóstico.
+- **Correções de causalidade encontradas rodando de verdade (antes da Semana 4)**:
+  1) `align_and_fill_ohlc` usava interpolação linear (usa o preço FUTURO conhecido para
+     preencher o passado — lookahead bias real). Trocado por forward-fill causal puro
+     (nunca back-fill), com política tudo-ou-nada por buraco (buraco > 3 dias de pregão
+     não preenche nem parcialmente).
+  2) Painel alinhado a `pd.bdate_range` (dias-úteis genéricos) tratava feriados de
+     B3/CBOT/ICE como "dado faltando". Trocado pelo calendário real de pregão da B3
+     (`pandas_market_calendars`) como calendário mestre do painel (carteira na
+     perspectiva de um investidor brasileiro).
+  3) ADF/KPSS rodavam num painel de 7 ativos concatenados linha-a-linha — quebra a
+     ordenação temporal que os testes assumem. Corrigido para rodar por ativo
+     separadamente (`stationarity_by_asset`, índice `(asset, feature)`).
+  4) GARCH usava forecast multi-passos-à-frente entre refits (não reage a choques
+     realizados até o próximo refit mensal). Trocado por refit periódico dos parâmetros
+     + atualização DIÁRIA da variância condicional via recursão `h_t = ω + α·r_{t-1}² +
+     β·h_{t-1}` com os retornos realmente observados — ainda sem lookahead, mais fiel
+     ao caminho real.
+- **Conversão cambial de soja/café para BRL (Semana 3, upstream)**: `ZS=F`/`KC=F` (USD)
+  são convertidos para BRL-equivalente (`convert_ohlc_to_brl`, câmbio do próprio dia)
+  ANTES de qualquer feature — não só no retorno agregado da carteira. Garman-Klass e
+  Corwin-Schultz são invariantes à conversão (razões H/L do mesmo dia cancelam o câmbio),
+  mas retornos/GARCH/skew/curtose desses 2 ativos mudam de verdade (passam a incorporar
+  a volatilidade cambial), pois o objetivo é medir risco na perspectiva de um investidor
+  brasileiro. `BRL=X` como fonte do câmbio é a mesma usada como ativo da carteira.
+- **`data/processed/portfolio_return.parquet` (retorno agregado, novo na Semana 3)**:
+  média simples (equal-weighted) do `return_1d` dos 7 ativos (já BRL) + vol. realizada
+  do retorno agregado (não a média das vols individuais — isso ignoraria diversificação).
+  É a entrada do HMM da Semana 4.
+- **HMM da Semana 4 selecionou 4 estados (não 2-3 "esperados" no pré-projeto)**: BIC e
+  AIC concordam em 4 estados tanto na especificação 3D quanto na 2D, sobre o retorno
+  agregado da carteira 2007-2024. Caracterização (`reports/tables/hmm_regime_characterization_3d.csv`):
+  2 regimes de vol. baixa/média com retorno positivo (~14%/17% vol. anualizada), 1 regime
+  de vol. intermediária (~22%), 1 regime de estresse claro (retorno médio negativo,
+  vol. ~45-47%, persistência menor ~39 dias). É plausível e vale a "inspeção de
+  plausibilidade econômica" citada no pré-projeto antes de fechar com o orientador — o
+  pré-projeto previa "eventualmente regime intermediário", o que bate com o achado.
+- **Bootstrap em blocos: nº de estados é estável, sequência de regimes só moderadamente
+  (Semana 4)**: 98% das 50 reamostragens confirmam 4 estados, mas a concordância de
+  regime (Viterbi realinhado) ficou em ~75% (ARI ~0,68) — real, não um bug: os 2 regimes
+  "calmos" intermediários (vol. ~14% e ~17%) provavelmente não são tão bem separados
+  quanto o regime de estresse, que deve ser o que mais contribui para a estabilidade.
+  Vale investigar/discutir com o orientador se 3 estados (mais parcimonioso, possivelmente
+  mais estável) é preferível a 4 antes de seguir para a Semana 5.
+- **HMM da Semana 4 é fit único in-sample, não walk-forward**: por decisão explícita
+  desta rodada, o refit causal (parâmetros reestimados só com dado passado, igual ao
+  GARCH) fica para a Semana 6, quando o treino do LSTM walk-forward for montado — usar
+  o resultado desta semana só para caracterização/exploração, não como a feature final
+  que alimenta o LSTM.

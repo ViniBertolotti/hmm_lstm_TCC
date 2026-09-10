@@ -9,20 +9,74 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pandas_market_calendars as mcal
 from arch import arch_model
+
+_PRICE_COLS = ("Open", "High", "Low", "Close")
+
+
+def get_b3_trading_days(start: str, end: str) -> pd.DatetimeIndex:
+    """Dias de pregão reais da B3 (não um calendário genérico seg-sex).
+
+    A carteira é definida na perspectiva de um investidor brasileiro: o
+    painel só deve existir em dias em que ele conseguiria de fato negociar.
+    """
+    schedule = mcal.get_calendar("B3").schedule(start_date=start, end_date=end)
+    return pd.DatetimeIndex(schedule.index.tz_localize(None))
 
 
 def align_and_fill_ohlc(ohlc: pd.DataFrame, start: str, end: str, max_gap_days: int = 3) -> pd.DataFrame:
-    """Alinha um OHLC ao calendário de dias úteis [start, end] e trata missing.
+    """Alinha um OHLC ao calendário real de pregão da B3 e trata missing.
 
-    Regra da Semana 3 (`PLANO.md`): buracos de até `max_gap_days` dias úteis
-    são preenchidos por interpolação linear; buracos maiores ficam `NaN`
-    (mesma política de "NaN estrutural, trim só no dataset final" já usada
-    para o burn-in do GARCH e para o `implied_vol_br` pré-2015).
+    Só usa informação passada: preenche buracos de até `max_gap_days` dias de
+    pregão por *forward-fill* (carrega o último preço observado — o retorno
+    do ativo nesse dia fica implicitamente 0%, uma aproximação honesta para
+    "não sabemos o que aconteceu"). Nunca interpola linearmente nem usa
+    *backward-fill* — isso usaria um preço futuro para preencher o passado
+    (lookahead bias). Buracos maiores que `max_gap_days` ficam `NaN` (mesma
+    política de "NaN estrutural, trim só no dataset final de modelagem" já
+    usada para o burn-in do GARCH e para o `implied_vol_br` pré-2015).
+
+    Um dia em que a bolsa de origem do ativo (CBOT/ICE, para os futuros)
+    esteve fechada mas a B3 esteve aberta é tratado da mesma forma — mercado
+    fechado para aquele ativo específico, não um erro de dado.
     """
-    business_days = pd.bdate_range(start, end)
-    aligned = ohlc.reindex(business_days)
-    return aligned.interpolate(method="linear", limit=max_gap_days, limit_direction="forward", limit_area="inside")
+    trading_days = get_b3_trading_days(start, end)
+    aligned = ohlc.reindex(trading_days)
+
+    price_cols = [c for c in _PRICE_COLS if c in aligned.columns]
+    is_missing = aligned[price_cols].isna().all(axis=1)
+
+    # ffill(limit=N) preencheria só os N primeiros dias de QUALQUER buraco, mesmo um longo.
+    # Aqui o critério é "tudo ou nada" por buraco: agrupa runs consecutivos de dias faltantes
+    # e só preenche os runs com no máximo `max_gap_days` dias no total.
+    run_id = (is_missing != is_missing.shift()).cumsum()
+    run_length = is_missing.groupby(run_id).transform("sum")
+    fillable = is_missing & (run_length <= max_gap_days)
+
+    ffilled = aligned[price_cols].ffill()
+    aligned.loc[fillable, price_cols] = ffilled.loc[fillable]
+
+    if "Volume" in aligned.columns:
+        aligned.loc[fillable, "Volume"] = aligned.loc[fillable, "Volume"].fillna(0.0)
+
+    return aligned
+
+
+def convert_ohlc_to_brl(ohlc_usd: pd.DataFrame, fx_close_brl_per_usd: pd.Series) -> pd.DataFrame:
+    """Converte um OHLC em USD para BRL-equivalente usando o câmbio do próprio dia.
+
+    Preco_BRL(t) = Preco_USD(t) × FX(t). Como é o mesmo FX aplicado a
+    Open/High/Low/Close do mesmo dia, razões intradiárias (Garman-Klass,
+    Corwin-Schultz) não mudam — mas retornos, GARCH e skew/curtose passam a
+    incorporar a volatilidade cambial, essencial para medir risco na
+    perspectiva de um investidor brasileiro (ver `PLANO.md` > Pendências).
+    """
+    converted = ohlc_usd.copy()
+    fx_aligned = fx_close_brl_per_usd.reindex(ohlc_usd.index)
+    price_cols = [c for c in _PRICE_COLS if c in converted.columns]
+    converted[price_cols] = converted[price_cols].mul(fx_aligned, axis=0)
+    return converted
 
 
 def compute_return_lags(prices: pd.Series, lags: tuple[int, ...] = (1, 5, 21)) -> pd.DataFrame:
@@ -92,14 +146,18 @@ def rolling_skew_kurtosis(return_1d: pd.Series, windows: tuple[int, ...] = (21, 
 def garch_conditional_vol_walkforward(
     return_1d: pd.Series, refit_every: int = 21, burn_in: int = 500
 ) -> pd.Series:
-    """Volatilidade condicional de um GARCH(1,1) em janela expansiva, sem lookahead.
+    """Volatilidade condicional de um GARCH(1,1), parâmetros reajustados
+    periodicamente e variância condicional atualizada diariamente, sem lookahead.
 
-    Reajusta o modelo a cada `refit_every` pregões (padrão: mensal) usando só
-    dados até aquele ponto, e usa o forecast de 1 passo à frente para os dias
-    até o próximo refit — muito mais rápido que reajustar diariamente, e ainda
-    assim sem vazar informação futura para o passado (cada refit só enxerga o
-    que já aconteceu). As primeiras `burn_in` observações ficam `NaN`
-    (precisam de histórico mínimo para o primeiro fit).
+    A cada `refit_every` pregões (padrão: mensal), reestima (ω, α, β) por
+    máxima verossimilhança usando só dados até aquele ponto. Entre um refit e
+    o próximo, a variância condicional segue a recursão
+    `h_t = ω + α·r_{t-1}² + β·h_{t-1}` **dia a dia, com os retornos
+    realmente observados** — mais fiel à dinâmica do processo do que um
+    forecast multi-passos-à-frente (que diverge do caminho real quando há
+    choques entre um refit e o outro), e ainda assim causal: h_t só depende
+    de r's e h's estritamente anteriores. As primeiras `burn_in` observações
+    ficam `NaN` (precisam de histórico mínimo para o primeiro fit).
     """
     returns = return_1d.dropna()
     returns_pct = returns * 100  # arch recomenda reescalar log-retornos pequenos para evitar problemas numéricos
@@ -110,10 +168,22 @@ def garch_conditional_vol_walkforward(
         model = arch_model(train, vol="Garch", p=1, q=1, dist="normal", rescale=False)
         result = model.fit(disp="off")
 
+        omega = result.params["omega"]
+        alpha1 = result.params["alpha[1]"]
+        beta1 = result.params["beta[1]"]
+
+        h_prev = result.conditional_volatility.iloc[-1] ** 2  # h_{start_idx-1}, do fit in-sample
+        r_prev = train.iloc[-1]  # r_{start_idx-1}, observado
+
         horizon = min(refit_every, len(returns) - start_idx)
-        forecast = result.forecast(horizon=horizon, reindex=False)
-        forecast_vol_pct = np.sqrt(forecast.variance.values[-1])
-        cond_vol.iloc[start_idx : start_idx + horizon] = forecast_vol_pct / 100
+        h_path = np.empty(horizon)
+        for step in range(horizon):
+            h_t = omega + alpha1 * r_prev**2 + beta1 * h_prev
+            h_path[step] = h_t
+            r_prev = returns_pct.iloc[start_idx + step]  # retorno recém-realizado nesse dia
+            h_prev = h_t
+
+        cond_vol.iloc[start_idx : start_idx + horizon] = np.sqrt(h_path) / 100
 
     return cond_vol.rename("garch_cond_vol")
 
