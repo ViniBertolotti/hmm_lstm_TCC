@@ -1,4 +1,5 @@
 pandas
+pyarrow
 numpy
 scipy
 scikit-learn
@@ -9,6 +10,14 @@ arch
 shap
 yfinance
 python-bcb
+fredapi
+python-dotenv
+requests
+truststore
+beautifulsoup4
+lxml
+openpyxl
+xlrd
 pyyaml
 matplotlib
 seaborn

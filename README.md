@@ -21,8 +21,8 @@ de interpretabilidade (SHAP) identifica os drivers de risco por regime.
 | Categoria | Ativo | Ticker |
 |---|---|---|
 | Equity agro (grãos) | SLC Agrícola | `SLCE3.SA` |
-| Equity agro (proteína) | JBS | `JBSS3.SA` |
-| Equity agro (proteína/pecuária) | Marfrig | `MRFG3.SA` |
+| Equity agro (proteína) | JBS | `JBSS32.SA` (BDR; `JBSS3.SA` descontinuado — reincorporação para JBS N.V.) |
+| Equity agro (proteína/pecuária) | Marfrig | `MBRF3.SA` (`MRFG3.SA` descontinuado — fusão Marfrig-BRF) |
 | Equity agro (açúcar/etanol) | São Martinho | `SMTO3.SA` |
 | Commodity | Soja (futuros) | `ZS=F` |
 | Commodity | Café Arábica (futuros) | `KC=F` |

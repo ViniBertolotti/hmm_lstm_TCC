@@ -11,10 +11,10 @@ assets:
     ticker: "SLCE3.SA"
     category: "equity"
   - name: "JBS"
-    ticker: "JBSS3.SA"
+    ticker: "JBSS32.SA"  # BDR na B3; JBSS3.SA foi descontinuado após reincorporação para JBS N.V. (NYSE: JBS)
     category: "equity"
   - name: "Marfrig"
-    ticker: "MRFG3.SA"
+    ticker: "MBRF3.SA"  # MRFG3.SA foi descontinuado após fusão Marfrig-BRF (nova entidade combinada)
     category: "equity"
   - name: "São Martinho"
     ticker: "SMTO3.SA"
