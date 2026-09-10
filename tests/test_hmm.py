@@ -8,7 +8,31 @@ from src.models.hmm import (
     forward_filter,
     select_n_states,
     viterbi_decode,
+    _effectively_converged,
 )
+
+
+def test_iteration_limit_is_not_convergence():
+    from types import SimpleNamespace
+    for history in ([1.], [1., 3.], [3., 2.]):
+        model = SimpleNamespace(tol=.01, monitor_=SimpleNamespace(history=history, converged=True))
+        assert not _effectively_converged(model)
+    model.monitor_.history = [3., 3.001]
+    assert _effectively_converged(model)
+
+
+def test_forward_resets_after_missing_period_and_handles_unreachable_state():
+    from hmmlearn.hmm import GaussianHMM
+    model = GaussianHMM(n_components=2, covariance_type="full")
+    model.startprob_ = np.array([1., 0.])
+    model.transmat_ = np.eye(2)
+    model.means_ = np.array([[0., .1], [0., .3]])
+    model.covars_ = np.array([np.eye(2), np.eye(2)])
+    obs = np.array([[0., .1], [0., .2], [0., .3]])
+    actual = forward_filter(model, obs, lengths=[1, 2])
+    expected = np.vstack([forward_filter(model, obs[:1]), forward_filter(model, obs[1:])])
+    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_allclose(actual, [[1., 0.]] * 3)
 
 
 def _two_regime_synthetic(n=1500, seed=42):

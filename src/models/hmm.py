@@ -15,6 +15,22 @@ import numpy as np
 import pandas as pd
 from hmmlearn.hmm import GaussianHMM
 from sklearn.metrics import adjusted_rand_score
+from scipy.special import logsumexp as _logsumexp
+
+
+def _sequence_lengths(n_obs: int, lengths=None) -> list[int]:
+    values = [n_obs] if lengths is None else list(lengths)
+    if not values or any(int(n) != n or n <= 0 for n in values) or sum(values) != n_obs:
+        raise ValueError("lengths deve conter comprimentos positivos que somam n_obs.")
+    return [int(n) for n in values]
+
+
+def _effectively_converged(model: GaussianHMM) -> bool:
+    history = list(model.monitor_.history)
+    if len(history) < 2 or not np.isfinite(history).all():
+        return False
+    gain = history[-1] - history[-2]
+    return 0 <= gain < model.tol
 
 
 def fit_gaussian_hmm(
@@ -23,6 +39,7 @@ def fit_gaussian_hmm(
     n_init: int = 20,
     n_iter: int = 200,
     random_state: int | None = None,
+    lengths: list[int] | None = None,
 ) -> GaussianHMM:
     """Ajusta um HMM gaussiano (covariância cheia) via Baum-Welch.
 
@@ -31,6 +48,10 @@ def fit_gaussian_hmm(
     pré-projeto ("múltiplas inicializações aleatórias para mitigar a
     convergência para ótimos locais").
     """
+    observations = np.asarray(observations, dtype=float)
+    if observations.ndim != 2 or observations.shape[1] < 2 or not np.isfinite(observations).all():
+        raise ValueError("HMM exige matriz finita com retorno e volatilidade.")
+    lengths = _sequence_lengths(len(observations), lengths)
     rng = np.random.default_rng(random_state)
     best_model, best_score = None, -np.inf
 
@@ -42,16 +63,16 @@ def fit_gaussian_hmm(
             random_state=int(rng.integers(0, 2**31 - 1)),
         )
         try:
-            model.fit(observations)
+            model.fit(observations, lengths=lengths)
+            if not _effectively_converged(model):
+                continue
+            score = model.score(observations, lengths=lengths)
         except (ValueError, np.linalg.LinAlgError):
             # covariância singular numa inicialização específica (ex.: estado quase vazio
             # com poucos estados de sobra, comum ao testar n_states acima do real) — descarta
             # essa tentativa e segue para a próxima inicialização aleatória.
             continue
-        if not model.monitor_.converged:
-            continue
-        score = model.score(observations)
-        if score > best_score:
+        if np.isfinite(score) and score > best_score:
             best_model, best_score = model, score
 
     if best_model is None:
@@ -64,6 +85,7 @@ def select_n_states(
     state_range: tuple[int, ...] = (2, 3, 4),
     n_init: int = 20,
     random_state: int | None = None,
+    lengths: list[int] | None = None,
 ) -> pd.DataFrame:
     """Busca em grade do número de estados, com seleção por BIC/AIC.
 
@@ -74,8 +96,8 @@ def select_n_states(
     n_obs = len(observations)
     rows = []
     for n_states in state_range:
-        model = fit_gaussian_hmm(observations, n_states, n_init=n_init, random_state=random_state)
-        log_likelihood = model.score(observations)
+        model = fit_gaussian_hmm(observations, n_states, n_init=n_init, random_state=random_state, lengths=lengths)
+        log_likelihood = model.score(observations, lengths=lengths)
         n_params = (
             n_states * (n_states - 1)  # transição (linhas somam 1)
             + (n_states - 1)  # distribuição inicial
@@ -100,7 +122,7 @@ def _state_order_by_volatility(model: GaussianHMM, vol_dim: int = 1) -> np.ndarr
 
 
 def characterize_regimes(model: GaussianHMM, observations: np.ndarray, column_names: list[str]) -> pd.DataFrame:
-    """Média, covariância e persistência de cada estado, ordenados por volatilidade."""
+    """Médias e persistência de cada estado, ordenados por volatilidade."""
     order = _state_order_by_volatility(model)
     rows = []
     for rank, state in enumerate(order):
@@ -113,16 +135,16 @@ def characterize_regimes(model: GaussianHMM, observations: np.ndarray, column_na
     return pd.DataFrame(rows).set_index("state_rank")
 
 
-def viterbi_decode(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
+def viterbi_decode(model: GaussianHMM, observations: np.ndarray, lengths=None) -> np.ndarray:
     """Sequência de estados mais provável (in-sample) — usa toda a série, inclusive o futuro
     de cada ponto. Serve para caracterizar regimes, não para gerar a feature do LSTM."""
     order = _state_order_by_volatility(model)
     remap = np.argsort(order)  # remap[estado_original] = rank por volatilidade
-    _, state_sequence = model.decode(observations, algorithm="viterbi")
+    _, state_sequence = model.decode(observations, algorithm="viterbi", lengths=lengths)
     return remap[state_sequence]
 
 
-def forward_filter(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
+def forward_filter(model: GaussianHMM, observations: np.ndarray, lengths=None) -> np.ndarray:
     """P(estado_t | obs_1..t) — filtragem causal (algoritmo Forward), sem lookahead.
 
     `hmmlearn` não expõe publicamente o forward puro: `predict_proba`/`decode`
@@ -134,6 +156,8 @@ def forward_filter(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
     """
     n_obs = len(observations)
     n_states = model.n_components
+    lengths = _sequence_lengths(n_obs, lengths)
+    starts = set(np.cumsum([0] + lengths[:-1]).tolist())
     log_emission = model._compute_log_likelihood(observations)  # (n_obs, n_states)
     with np.errstate(divide="ignore"):  # log(0) = -inf é o valor correto p/ estado de prob. zero
         log_startprob = np.log(model.startprob_)
@@ -144,17 +168,16 @@ def forward_filter(model: GaussianHMM, observations: np.ndarray) -> np.ndarray:
     log_alpha[0] -= _logsumexp(log_alpha[0])
 
     for t in range(1, n_obs):
+        if t in starts:
+            log_alpha[t] = log_startprob + log_emission[t]
+            log_alpha[t] -= _logsumexp(log_alpha[t])
+            continue
         for j in range(n_states):
             log_alpha[t, j] = _logsumexp(log_alpha[t - 1] + log_transmat[:, j]) + log_emission[t, j]
         log_alpha[t] -= _logsumexp(log_alpha[t])
 
     order = _state_order_by_volatility(model)
     return np.exp(log_alpha)[:, order]
-
-
-def _logsumexp(x: np.ndarray) -> float:
-    m = np.max(x)
-    return m + np.log(np.sum(np.exp(x - m)))
 
 
 def _moving_block_bootstrap_indices(n_obs: int, block_length: int, rng: np.random.Generator) -> np.ndarray:
@@ -173,65 +196,62 @@ def block_bootstrap_stability(
     n_bootstrap: int = 200,
     n_init: int = 5,
     random_state: int | None = None,
+    lengths: list[int] | None = None,
 ) -> dict:
     """Robustez do HMM via bootstrap em blocos (pré-projeto, seção 3.3).
 
-    Mede duas dimensões de estabilidade:
-    - **estabilidade do nº de estados**: distribuição da escolha por BIC em cada reamostragem;
-    - **estabilidade da sequência de regimes**: cada reamostragem é decodificada (Viterbi),
-      remapeada para os índices de tempo originais (um bloco reamostrado "aponta" para onde
-      veio na série original) e comparada ao Viterbi da amostra original nos pontos
-      efetivamente cobertos pela reamostragem — % de concordância direta e Adjusted Rand
-      Index (ARI, invariante a troca de rótulo, robusto mesmo sem o alinhamento por
-      volatilidade já aplicado em `viterbi_decode`).
-
-    Como o bootstrap embaralha a ordem temporal, cada reamostragem cobre só um
-    subconjunto dos instantes originais (alguns pontos saem em vários blocos, outros
-    em nenhum) — daí a necessidade do remapeamento antes de comparar.
+    Reamostra blocos sem atravessar lacunas e ajusta cada bloco como sequência
+    independente. Compara os modelos na cronologia original. Concordância direta
+    usa apenas o mesmo número de estados; ARI inclui todos os ajustes bem-sucedidos.
+    Registra falhas; as métricas são condicionais aos ajustes bem-sucedidos.
     """
     rng = np.random.default_rng(random_state)
     n_obs = len(observations)
+    lengths = _sequence_lengths(n_obs, lengths)
 
-    reference_n_states = select_n_states(observations, state_range, n_init, random_state)["bic"].idxmin()
-    reference_model = fit_gaussian_hmm(observations, n_states=reference_n_states, n_init=n_init, random_state=random_state)
-    reference_viterbi = viterbi_decode(reference_model, observations)
+    reference_n_states = select_n_states(observations, state_range, n_init, random_state, lengths=lengths)["bic"].idxmin()
+    reference_model = fit_gaussian_hmm(observations, n_states=reference_n_states, n_init=n_init, random_state=random_state, lengths=lengths)
+    reference_viterbi = viterbi_decode(reference_model, observations, lengths=lengths)
 
     selected_states = []
     agreement_pcts, aris = [], []
 
     for _ in range(n_bootstrap):
-        boot_idx = _moving_block_bootstrap_indices(n_obs, block_length, rng)
+        offsets = np.cumsum([0] + lengths[:-1])
+        valid_starts = np.concatenate([np.arange(o, o + n - block_length + 1) for o, n in zip(offsets, lengths) if n >= block_length])
+        if not len(valid_starts):
+            raise ValueError("Nenhuma sequência comporta block_length.")
+        starts = rng.choice(valid_starts, size=int(np.ceil(n_obs / block_length)))
+        boot_idx = np.concatenate([np.arange(s, s + block_length) for s in starts])[:n_obs]
         boot_obs = observations[boot_idx]
-
-        bic_scores = select_n_states(boot_obs, state_range, n_init, int(rng.integers(0, 2**31 - 1)))["bic"]
-        n_states_boot = bic_scores.idxmin()
-        selected_states.append(n_states_boot)
-
+        boot_lengths = [block_length] * (n_obs // block_length)
+        if n_obs % block_length:
+            boot_lengths.append(n_obs % block_length)
         try:
-            boot_model = fit_gaussian_hmm(boot_obs, n_states_boot, n_init=n_init, random_state=int(rng.integers(0, 2**31 - 1)))
+            boot_seed = int(rng.integers(0, 2**31 - 1))
+            bic_scores = select_n_states(boot_obs, state_range, n_init, boot_seed, lengths=boot_lengths)["bic"]
+            n_states_boot = bic_scores.idxmin()
+            boot_model = fit_gaussian_hmm(boot_obs, n_states_boot, n_init=n_init, random_state=boot_seed, lengths=boot_lengths)
         except RuntimeError:
             continue
-        boot_viterbi = viterbi_decode(boot_model, boot_obs)  # já ordenado por volatilidade
+        selected_states.append(n_states_boot)
+        # Avalia os modelos na MESMA cronologia original, sem escolher uma
+        # ocorrência arbitrária de datas duplicadas da reamostragem.
+        boot_labels = viterbi_decode(boot_model, observations, lengths=lengths)
+        agreement_pcts.append((reference_viterbi == boot_labels).mean() if n_states_boot == reference_n_states else np.nan)
+        aris.append(adjusted_rand_score(reference_viterbi, boot_labels))
 
-        # remapeia cada posição bootstrap para o índice de tempo original de onde veio;
-        # se o mesmo instante original aparece várias vezes, usa o rótulo da última ocorrência
-        original_time_labels = pd.Series(boot_viterbi, index=boot_idx)
-        original_time_labels = original_time_labels[~original_time_labels.index.duplicated(keep="last")]
-        original_time_labels = original_time_labels.sort_index()
-
-        covered = original_time_labels.index.values
-        ref_labels = reference_viterbi[covered]
-        boot_labels = original_time_labels.values
-
-        agreement_pcts.append((ref_labels == boot_labels).mean())
-        aris.append(adjusted_rand_score(ref_labels, boot_labels))
-
+    if not aris:
+        raise RuntimeError("Nenhum ajuste bootstrap convergiu; não há estabilidade estimável.")
+    comparable = np.asarray(agreement_pcts)[np.isfinite(agreement_pcts)]
     return {
         "reference_n_states": reference_model.n_components,
         "selected_n_states_distribution": pd.Series(selected_states).value_counts(normalize=True).sort_index(),
-        "regime_agreement_pct_mean": float(np.mean(agreement_pcts)),
-        "regime_agreement_pct_std": float(np.std(agreement_pcts)),
+        "regime_agreement_pct_mean": float(np.mean(comparable)) if len(comparable) else np.nan,
+        "regime_agreement_pct_std": float(np.std(comparable)) if len(comparable) else np.nan,
         "adjusted_rand_index_mean": float(np.mean(aris)),
         "adjusted_rand_index_std": float(np.std(aris)),
         "n_bootstrap_completed": len(agreement_pcts),
+        "n_bootstrap_failed": n_bootstrap - len(agreement_pcts),
+        "n_bootstrap_same_n_states": len(comparable),
     }

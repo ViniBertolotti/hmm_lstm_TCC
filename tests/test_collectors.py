@@ -5,98 +5,37 @@ import pytest
 from src.data.collectors import adjust_futures_roll, adjust_ohlc_roll
 
 
-def _synthetic_futures_series() -> pd.Series:
-    """Série sintética com retornos reais pequenos + um salto artificial de rolagem."""
-    dates = pd.bdate_range("2020-01-01", periods=40)
-    rng = np.random.default_rng(42)
-    daily_returns = rng.normal(loc=0.0, scale=0.005, size=len(dates))
-
-    prices = 100 * np.exp(np.cumsum(daily_returns))
-    roll_idx = 20
-    roll_jump = 0.15  # 15%: bem acima do jump_threshold default (8%)
-    prices[roll_idx:] *= 1 + roll_jump
-
-    return pd.Series(prices, index=dates)
+def test_large_market_loss_is_preserved_without_roll_evidence():
+    raw = pd.Series([100., 75., 90.], index=pd.bdate_range('2020-01-01', periods=3))
+    pd.testing.assert_series_equal(adjust_futures_roll(raw), raw)
 
 
-def test_adjust_futures_roll_removes_artificial_jump():
-    raw = _synthetic_futures_series()
-    adjusted = adjust_futures_roll(raw, jump_threshold=0.08)
-
-    adjusted_log_ret = np.log(adjusted).diff().dropna()
-    assert adjusted_log_ret.abs().max() < 0.08
-
-
-def test_adjust_futures_roll_preserves_percentage_returns():
-    """O ajuste é multiplicativo (por razão): fora do dia exato da rolagem, os
-    retornos percentuais/log ficam idênticos, já que multiplicar por uma
-    constante não altera `preco[t] / preco[t-1]`. No dia da rolagem em si, o
-    salto artificial é zerado de propósito (é o que a função existe para fazer)."""
-    raw = _synthetic_futures_series()
-    adjusted = adjust_futures_roll(raw, jump_threshold=0.08)
-
-    roll_date = raw.index[20]
-    raw_log_ret = np.log(raw).diff().dropna().drop(roll_date)
-    adjusted_log_ret = np.log(adjusted).diff().dropna().drop(roll_date)
-
-    pd.testing.assert_series_equal(raw_log_ret, adjusted_log_ret, check_names=False)
-
-
-def test_adjust_futures_roll_never_produces_negative_prices_over_many_rolls():
-    """Regressão: um ajuste aditivo puro, aplicado a décadas de histórico com
-    muitas rolagens, empurra os preços mais antigos para valores negativos
-    (achado real ao rodar em ZS=F/KC=F de 2005-2024). O ajuste multiplicativo
-    não pode fazer isso, não importa quantas rolagens se acumulem."""
-    dates = pd.bdate_range("2005-01-01", periods=5000)
-    rng = np.random.default_rng(7)
-    daily_returns = rng.normal(loc=0.0, scale=0.01, size=len(dates))
-    prices = pd.Series(50 * np.exp(np.cumsum(daily_returns)), index=dates)
-
-    # simula ~80 rolagens (a cada ~63 dias, quarterly-ish) com saltos de -20% a +20%
-    for roll_idx in range(63, len(prices), 63):
-        jump_factor = 1 + rng.uniform(-0.2, 0.2)
-        prices.iloc[roll_idx:] *= jump_factor
-
-    adjusted = adjust_futures_roll(prices, jump_threshold=0.08)
-
-    assert (adjusted > 0).all()
-
-
-def test_adjust_futures_roll_zeroes_the_roll_day_jump():
-    raw = _synthetic_futures_series()
-    adjusted = adjust_futures_roll(raw, jump_threshold=0.08)
-
-    roll_date = raw.index[20]
-    assert adjusted.diff().loc[roll_date] == pytest.approx(0.0, abs=1e-9)
-
-
-def test_adjust_futures_roll_keeps_latest_price_level_unchanged():
-    raw = _synthetic_futures_series()
-    adjusted = adjust_futures_roll(raw, jump_threshold=0.08)
-
+def test_verified_roll_preserves_real_return_on_roll_day():
+    dates = pd.bdate_range('2020-01-01', periods=4)
+    raw = pd.Series([100., 101., 101. * .9 * 1.2, 110.], index=dates)
+    adjusted = adjust_futures_roll(raw, roll_factors=pd.Series([1.2], index=[dates[2]]))
+    assert adjusted.iloc[2] / adjusted.iloc[1] - 1 == pytest.approx(-.1)
     assert adjusted.iloc[-1] == raw.iloc[-1]
+    assert adjusted.iloc[1] / adjusted.iloc[0] == pytest.approx(1.01)
 
 
-def _synthetic_futures_ohlc() -> pd.DataFrame:
-    close = _synthetic_futures_series()
-    return pd.DataFrame(
-        {"Open": close, "High": close * 1.01, "Low": close * 0.99, "Close": close},
-        index=close.index,
-    )
+@pytest.mark.parametrize('factor', [0., -1., np.inf, np.nan])
+def test_invalid_roll_factor_rejected(factor):
+    dates = pd.bdate_range('2020-01-01', periods=3)
+    with pytest.raises(ValueError):
+        adjust_futures_roll(pd.Series([100., 110., 120.], index=dates),
+                            roll_factors=pd.Series([factor], index=[dates[1]]))
 
 
-def test_adjust_ohlc_roll_close_matches_series_version():
-    ohlc = _synthetic_futures_ohlc()
-    adjusted_ohlc = adjust_ohlc_roll(ohlc, jump_threshold=0.08)
-    adjusted_close_only = adjust_futures_roll(ohlc["Close"], jump_threshold=0.08)
-
-    pd.testing.assert_series_equal(adjusted_ohlc["Close"], adjusted_close_only, check_names=False)
-
-
-def test_adjust_ohlc_roll_keeps_high_low_consistent():
-    ohlc = _synthetic_futures_ohlc()
-    adjusted = adjust_ohlc_roll(ohlc, jump_threshold=0.08)
-
-    assert (adjusted["High"] >= adjusted["Low"]).all()
-    assert (adjusted["High"] >= adjusted["Close"]).all()
-    assert (adjusted["Low"] <= adjusted["Close"]).all()
+def test_ohlc_roll_preserves_geometry_volume_and_missing_dates():
+    dates = pd.bdate_range('2020-01-01', periods=4)
+    raw = pd.DataFrame({'Open': [100., np.nan, 110., 120.],
+                        'High': [105., np.nan, 115., 125.],
+                        'Low': [95., np.nan, 105., 115.],
+                        'Close': [102., np.nan, 112., 122.], 'Volume': 50.}, index=dates)
+    factors = pd.Series([1.1], index=[dates[2]])
+    out = adjust_ohlc_roll(raw, roll_factors=factors)
+    pd.testing.assert_series_equal(out.Volume, raw.Volume)
+    assert out.index.equals(raw.index)
+    pd.testing.assert_series_equal(out.High / out.Low, raw.High / raw.Low)
+    pd.testing.assert_frame_equal(adjust_ohlc_roll(raw), raw)

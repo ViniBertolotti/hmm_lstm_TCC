@@ -33,7 +33,7 @@ acompanhamento. Marque `[x]` ao concluir.
       Corwin-Schultz (proxy de bid-ask), volume normalizado, vol. implícita
       (`^VIX` + Ibov/Bloomberg)
 - [x] Tratamento de missing **corrigido** (`align_and_fill_ohlc`: forward-fill causal até
-      3 dias de pregão reais, nunca interpolação/backward-fill — ver Pendências) sobre o
+      3 primeiros dias de cada ausência, nunca interpolação/backward-fill — ver Pendências) sobre o
       **calendário real de pregão da B3** (`pandas_market_calendars`), não dias-úteis
       genéricos
 - [x] Soja/café (`ZS=F`/`KC=F`) **convertidos para BRL-equivalente** (câmbio do próprio
@@ -44,7 +44,7 @@ acompanhamento. Marque `[x]` ao concluir.
       — diagnóstico exploratório na amostra completa, seleção final entra por split
       walk-forward (Semana 6)
 - [x] `notebooks/02_feature_engineering.ipynb`: gera `data/processed/features.parquet`
-      (4336 linhas × 112 colunas = 16 features × 7 ativos, calendário B3) +
+      (calendário B3; volume normalizado excluído para FX) +
       `data/processed/portfolio_return.parquet` (retorno agregado equal-weighted, BRL,
       preparação para o HMM) + relatórios em `reports/tables/`
 
@@ -132,9 +132,9 @@ acompanhamento. Marque `[x]` ao concluir.
   `ipeadatapy` e scraping manual, e adicionar `collect_ipeadata_embi()` em
   `src/data/collectors.py` seguindo o mesmo padrão dos demais coletores.
 - **Decisão pendente com o orientador — soja/café, Yahoo (USD, futuros) vs. CEPEA (BRL,
-  spot)**: a carteira já tem USD/BRL como ativo explícito; usar futuros de soja/café em
-  USD embute risco cambial dentro do preço, duplicando (double counting) o risco cambial
-  já capturado por USD/BRL. `collectors.py` hoje coleta as duas séries lado a lado
+  spot)**: a carteira tem USD/BRL explícito e futuros convertidos para BRL; essas exposições
+  precisam ser justificadas pelo objetivo do índice e não constituem automaticamente
+  duplicação contábil. `collectors.py` hoje coleta as duas séries lado a lado
   (`collect_futures_raw`/`adjust_futures_roll` para Yahoo, `collect_cepea_spot` para
   CEPEA) exatamente para permitir essa decisão com dado real em mãos. Falta: validar com
   o Prof. Gustavo qual série entra oficialmente na carteira antes da Semana 3
@@ -143,36 +143,20 @@ acompanhamento. Marque `[x]` ao concluir.
   (Broad Trade-Weighted U.S. Dollar Index) como proxy — metodologicamente equivalente
   na literatura, mas não é o mesmo índice/base. Documentar essa ressalva no Cap. 3
   (Metodologia) quando o documento for revisado.
-- **Ajuste de rolagem dos futuros — trocado de aditivo para multiplicativo (Semana 3)**:
-  `adjust_futures_roll`/`adjust_ohlc_roll` usavam back-adjustment *aditivo* (Panama).
-  Rodando de verdade em ZS=F/KC=F (2005-2024, ~19 anos, dezenas de rolagens), o
-  deslocamento aditivo acumulado empurrou preços do início da amostra para **valores
-  negativos** — inviabilizando Garman-Klass/Corwin-Schultz (precisam de log(H/L) e
-  log(C/O) positivos). Trocado para ajuste **multiplicativo (por razão)**: nunca produz
-  preço negativo e preserva os retornos percentuais/log exatamente (mais coerente com
-  o resto do pipeline, que é todo baseado em log-retornos). `data/raw/futures_*.parquet`
-  já foi regenerado com o ajuste corrigido. O limiar fixo de log-retorno (8%) para
-  detectar rolagem continua o mesmo — vale revisitar se uma rolagem real produzir um
-  salto menor que isso.
+- **Rolagem dos futuros — removida a heurística de log-retorno > 8%**:
+  o notebook 02 usa `futures_raw_yahoo.parquet`. Ajustes exigem fatores explícitos
+  (novo/antigo cotados na mesma data). Falta obter metadados de contratos e validar
+  os fatores; a série bruta pode conter descontinuidades de rolagem, portanto os
+  resultados continuam exploratórios. O antigo `futures_adjusted_yahoo.parquet`
+  não é mais consumido pelo notebook 02.
 - **Cap. 1 do `.docx` (pivô agro)**: `docs/pre_projeto_original.docx` ainda está na
   versão genérica ("carteiras brasileiras"), sem menção a agro/commodities/tickers.
   Reescrita adiada de propósito para depois da coleta de dados (decisão desta rodada).
-- **FRED pendente de chave**: `collect_fred` está pronto e os `series_id` (`DGS10`,
-  `DTWEXBGS`) foram confirmados no site do FRED, mas não foi possível rodar de ponta a
-  ponta nesta sessão por faltar `FRED_API_KEY` no `.env` local. Copie `.env.example`
-  para `.env`, preencha a chave e rode a última célula de `01_data_collection.ipynb`
-  (ou o notebook inteiro) para gerar `data/raw/macro_fred.parquet`.
-- **Gap real em USD/BRL muda silenciosamente a composição da carteira (achado, não
-  corrigido ainda)**: `BRL=X` tem um gap genuíno de 17 dias de pregão (01/08 a 25/08/2008,
-  crise financeira) maior que os 3 dias do forward-fill, então fica `NaN` em
-  `features.parquet` nesse trecho — e como `ZS=F`/`KC=F` são convertidos usando esse
-  mesmo câmbio, ficam `NaN` também. Mas `portfolio_return.parquet` é construído com
-  `.mean(axis=1)`, que **ignora `NaN` por padrão** — nesse trecho o "retorno da carteira"
-  vira silenciosamente a média só dos 4 equities restantes (composição efetiva 4/7, não
-  7/7), sem nenhum sinalizador. Decisão pendente: manter esse comportamento (prático,
-  mas silencioso) ou forçar `NaN` explícito no retorno agregado quando qualquer
-  constituinte estiver faltando (mais conservador, perde mais dados, mas com política
-  explícita por ativo/feature, como preferido nesta rodada).
+- **FRED**: o arquivo local existe; atualizar pela fonte exige `FRED_API_KEY`.
+- **Ausência de câmbio em 2008**: o agregado não renormaliza pesos. Quando falta
+  qualquer constituinte, mantém `NaN` e registra `portfolio_coverage.csv`.
+  Soja/café dependem do mesmo câmbio. O HMM recebe comprimentos das sequências
+  contíguas, sem inventar transições através de lacunas.
 - **Cobertura parcial de equities/CEPEA-soja é esperada, não um bug**: `covers_requested_range=False`
   para SLCE3.SA/JBSS32.SA/MBRF3.SA/SMTO3.SA e para a série CEPEA-soja só reflete que
   esses ativos/BDRs foram listados ou a série começou depois de 2005 (ex.: JBSS32.SA
@@ -211,8 +195,8 @@ acompanhamento. Marque `[x]` ao concluir.
 - **Correções de causalidade encontradas rodando de verdade (antes da Semana 4)**:
   1) `align_and_fill_ohlc` usava interpolação linear (usa o preço FUTURO conhecido para
      preencher o passado — lookahead bias real). Trocado por forward-fill causal puro
-     (nunca back-fill), com política tudo-ou-nada por buraco (buraco > 3 dias de pregão
-     não preenche nem parcialmente).
+     (nunca back-fill), limitado aos três primeiros pregões ausentes. A regra tudo-ou-nada foi
+     removida porque dependia da duração futura da ausência.
   2) Painel alinhado a `pd.bdate_range` (dias-úteis genéricos) tratava feriados de
      B3/CBOT/ICE como "dado faltando". Trocado pelo calendário real de pregão da B3
      (`pandas_market_calendars`) como calendário mestre do painel (carteira na
@@ -222,37 +206,32 @@ acompanhamento. Marque `[x]` ao concluir.
      separadamente (`stationarity_by_asset`, índice `(asset, feature)`).
   4) GARCH usava forecast multi-passos-à-frente entre refits (não reage a choques
      realizados até o próximo refit mensal). Trocado por refit periódico dos parâmetros
-     + atualização DIÁRIA da variância condicional via recursão `h_t = ω + α·r_{t-1}² +
+     + atualização DIÁRIA da variância condicional via recursão `h_t = ω + α·(r_{t-1}-μ)² +
      β·h_{t-1}` com os retornos realmente observados — ainda sem lookahead, mais fiel
      ao caminho real.
 - **Conversão cambial de soja/café para BRL (Semana 3, upstream)**: `ZS=F`/`KC=F` (USD)
   são convertidos para BRL-equivalente (`convert_ohlc_to_brl`, câmbio do próprio dia)
-  ANTES de qualquer feature — não só no retorno agregado da carteira. Garman-Klass e
-  Corwin-Schultz são invariantes à conversão (razões H/L do mesmo dia cancelam o câmbio),
+  ANTES de qualquer feature — não só no retorno agregado da carteira. Garman-Klass é
+  invariante ao fator cambial diário; Corwin-Schultz usa extremos de dois dias e
+  pode mudar com o câmbio,
   mas retornos/GARCH/skew/curtose desses 2 ativos mudam de verdade (passam a incorporar
   a volatilidade cambial), pois o objetivo é medir risco na perspectiva de um investidor
   brasileiro. `BRL=X` como fonte do câmbio é a mesma usada como ativo da carteira.
-- **`data/processed/portfolio_return.parquet` (retorno agregado, novo na Semana 3)**:
-  média simples (equal-weighted) do `return_1d` dos 7 ativos (já BRL) + vol. realizada
-  do retorno agregado (não a média das vols individuais — isso ignoraria diversificação).
-  É a entrada do HMM da Semana 4.
-- **HMM da Semana 4 selecionou 4 estados (não 2-3 "esperados" no pré-projeto)**: BIC e
-  AIC concordam em 4 estados tanto na especificação 3D quanto na 2D, sobre o retorno
-  agregado da carteira 2007-2024. Caracterização (`reports/tables/hmm_regime_characterization_3d.csv`):
-  2 regimes de vol. baixa/média com retorno positivo (~14%/17% vol. anualizada), 1 regime
-  de vol. intermediária (~22%), 1 regime de estresse claro (retorno médio negativo,
-  vol. ~45-47%, persistência menor ~39 dias). É plausível e vale a "inspeção de
-  plausibilidade econômica" citada no pré-projeto antes de fechar com o orientador — o
-  pré-projeto previa "eventualmente regime intermediário", o que bate com o achado.
-- **Bootstrap em blocos: nº de estados é estável, sequência de regimes só moderadamente
-  (Semana 4)**: 98% das 50 reamostragens confirmam 4 estados, mas a concordância de
-  regime (Viterbi realinhado) ficou em ~75% (ARI ~0,68) — real, não um bug: os 2 regimes
-  "calmos" intermediários (vol. ~14% e ~17%) provavelmente não são tão bem separados
-  quanto o regime de estresse, que deve ser o que mais contribui para a estabilidade.
-  Vale investigar/discutir com o orientador se 3 estados (mais parcimonioso, possivelmente
-  mais estável) é preferível a 4 antes de seguir para a Semana 5.
-- **HMM da Semana 4 é fit único in-sample, não walk-forward**: por decisão explícita
-  desta rodada, o refit causal (parâmetros reestimados só com dado passado, igual ao
-  GARCH) fica para a Semana 6, quando o treino do LSTM walk-forward for montado — usar
-  o resultado desta semana só para caracterização/exploração, não como a feature final
-  que alimenta o LSTM.
+- **Retorno da carteira**: `log1p(mean(expm1(log_retornos)))`, com sete pesos
+  iguais rebalanceados diariamente e exigência de todos os constituintes. É índice
+  proxy em BRL, não P&L de contratos com margem/colateral/custos.
+- **Resultados HMM**: números anteriores à correção de dados estão arquivados em
+  `reports/archive/`. Consultar CSVs regenerados e `rebuild_manifest.json`; não
+  reutilizar os antigos 98%/75% como resultados corrigidos.
+- **Bootstrap**: blocos não atravessam lacunas e são sequências independentes no fit.
+  Compara os modelos na cronologia original; concordância direta usa somente o
+  mesmo número de estados, ARI inclui todos os sucessos. Falhas são contadas.
+  As métricas não são diretamente comparáveis às anteriores, que escolhiam a
+  última ocorrência de datas duplicadas na reamostragem.
+- **Convergência HMM**: exige ganho finito, não negativo e inferior à tolerância
+  entre as últimas iterações; atingir n_iter sozinho não basta.
+- **HMM é exploratório in-sample**: os parâmetros ainda usam a amostra completa.
+  Walk-forward e preparação final da LSTM permanecem na Semana 6.
+- **Ausências nas features**: volume de FX foi excluído por não ser aplicável.
+  Demais ausências (burn-in, volatilidade implícita pré-2015, gaps) são preservadas.
+  Seleção/imputação deverá usar exclusivamente o treino de cada split.
