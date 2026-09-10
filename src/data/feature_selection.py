@@ -1,14 +1,18 @@
-"""Diagnóstico e seleção de features (Semana 3, Passada 2).
+"""Diagnóstico exploratório de features (Semana 3, Passada 2).
 
-Roda sobre o painel *pooled* (todos os ativos empilhados/lado a lado — ver
-`PLANO.md` > Semana 3): estacionariedade (ADF/KPSS), correlação e filtro de
-multicolinearidade (VIF), produzindo um único conjunto de features retido
-para todos os ativos (arquitetura simétrica para o LSTM da Semana 5).
+`stationarity_report` exige uma série por vez (ADF/KPSS assumem ordenação
+temporal) — rodar por ativo separadamente, nunca num painel de vários ativos
+concatenados. `correlation_matrix`/`vif_filter` não dependem de ordem
+temporal e podem rodar pooled (todos os ativos empilhados). Este módulo é um
+diagnóstico na amostra completa, não a seleção final de features — essa
+entra dentro de cada split walk-forward (Semana 6), para não vazar
+informação de teste para a escolha de quais features manter.
 """
 from __future__ import annotations
 
 import warnings
 
+import numpy as np
 import pandas as pd
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from statsmodels.tools.tools import add_constant
@@ -25,6 +29,20 @@ def stationarity_report(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for col in df.columns:
         series = df[col].dropna()
+        if series.empty or series.nunique() <= 1:
+            # ex.: BRL=X não tem volume real no Yahoo -> volume_normalized fica todo NaN/constante
+            rows.append(
+                {
+                    "feature": col,
+                    "adf_stat": np.nan,
+                    "adf_pvalue": np.nan,
+                    "adf_rejects_unit_root": False,
+                    "kpss_stat": np.nan,
+                    "kpss_pvalue": np.nan,
+                    "kpss_fails_to_reject_stationary": False,
+                }
+            )
+            continue
         adf_stat, adf_p = adfuller(series, autolag="AIC", result_object=False)[:2]
         with warnings.catch_warnings():
             # KPSS emite InterpolationWarning quando a estatística cai fora da tabela de valores críticos

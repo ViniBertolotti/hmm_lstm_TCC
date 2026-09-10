@@ -5,9 +5,11 @@ import pytest
 from src.data.features import (
     align_and_fill_ohlc,
     compute_return_lags,
+    convert_ohlc_to_brl,
     corwin_schultz_spread,
     garch_conditional_vol_walkforward,
     garman_klass_volatility,
+    get_b3_trading_days,
 )
 
 
@@ -23,18 +25,75 @@ def _synthetic_ohlc(n=60, seed=0, flat=False):
     return pd.DataFrame({"Open": open_, "High": high, "Low": low, "Close": close, "Volume": 1000}, index=dates)
 
 
-def test_align_and_fill_ohlc_interpolates_short_gaps_only():
-    dates = pd.bdate_range("2021-01-04", periods=10)
-    close = pd.Series([10, 11, 12, 13, 14, 15, 16, 17, 18, 19.0], index=dates)
-    df = pd.DataFrame({"Close": close})
+def test_get_b3_trading_days_excludes_weekends_and_new_year():
+    days = get_b3_trading_days("2023-12-28", "2024-01-03")
+    # 2023-12-30/31 = sab/dom, 2024-01-01 = feriado (Ano Novo) -> nenhum deve aparecer
+    assert pd.Timestamp("2023-12-30") not in days
+    assert pd.Timestamp("2023-12-31") not in days
+    assert pd.Timestamp("2024-01-01") not in days
+    assert pd.Timestamp("2023-12-28") in days
+    assert pd.Timestamp("2024-01-02") in days
 
-    # remove um buraco curto (2 dias, indices 2-3) e um buraco longo (5 dias, indices 5-9)
+
+def test_align_and_fill_ohlc_forward_fills_short_gaps_only():
+    dates = get_b3_trading_days("2021-01-04", "2021-01-20")
+    close = pd.Series(range(10, 10 + len(dates)), index=dates, dtype=float)
+    df = pd.DataFrame({"Open": close, "High": close, "Low": close, "Close": close, "Volume": 1000.0})
+
+    # remove um buraco curto (2 dias) e um buraco longo (5 dias)
     df_with_gaps = df.drop(df.index[[2, 3, 5, 6, 7, 8, 9]])
 
     filled = align_and_fill_ohlc(df_with_gaps, dates[0], dates[-1], max_gap_days=3)
 
-    assert filled["Close"].iloc[2:4].notna().all()  # buraco curto: interpolado
+    assert filled["Close"].iloc[2:4].notna().all()  # buraco curto: preenchido
+    assert (filled["Close"].iloc[2:4] == filled["Close"].iloc[1]).all()  # ffill, não interpolação
+    assert filled["Volume"].iloc[2:4].eq(0.0).all()  # sem volume nos dias "criados"
     assert filled["Close"].iloc[5:10].isna().all()  # buraco longo: continua NaN
+
+
+def test_align_and_fill_ohlc_never_uses_future_prices():
+    """Regressão: a versão antiga usava interpolação linear (pega o valor
+    futuro conhecido para preencher o passado) — lookahead bias real. O
+    ffill nunca pode preencher um buraco com um preço que só existe depois."""
+    dates = get_b3_trading_days("2021-01-04", "2021-01-20")
+    close = pd.Series(range(10, 10 + len(dates)), index=dates, dtype=float)
+    df = pd.DataFrame({"Open": close, "High": close, "Low": close, "Close": close, "Volume": 1000.0})
+    df_with_gap = df.drop(df.index[[3]])  # um buraco de 1 dia
+
+    filled = align_and_fill_ohlc(df_with_gap, dates[0], dates[-1], max_gap_days=3)
+
+    # o valor preenchido tem que ser o ÚLTIMO conhecido (posição 2), nunca o próximo (posição 4)
+    assert filled["Close"].iloc[3] == df["Close"].iloc[2]
+    assert filled["Close"].iloc[3] != df["Close"].iloc[4]
+
+
+def test_convert_ohlc_to_brl_multiplies_by_same_day_fx():
+    dates = pd.bdate_range("2023-01-02", periods=5)
+    ohlc_usd = pd.DataFrame(
+        {"Open": 100.0, "High": 110.0, "Low": 90.0, "Close": 105.0, "Volume": 500.0}, index=dates
+    )
+    fx = pd.Series([5.0, 5.1, 5.2, 5.0, 4.9], index=dates)
+
+    brl = convert_ohlc_to_brl(ohlc_usd, fx)
+
+    pd.testing.assert_series_equal(brl["Close"], ohlc_usd["Close"] * fx, check_names=False)
+    pd.testing.assert_series_equal(brl["Volume"], ohlc_usd["Volume"], check_names=False)  # volume não é convertido
+
+
+def test_convert_ohlc_to_brl_preserves_high_low_ratio():
+    """Garman-Klass/Corwin-Schultz usam log(High/Low) do mesmo dia — o câmbio
+    do dia cancela nessa razão, então a conversão não pode alterá-la."""
+    dates = pd.bdate_range("2023-01-02", periods=5)
+    ohlc_usd = pd.DataFrame(
+        {"Open": 100.0, "High": 110.0, "Low": 90.0, "Close": 105.0}, index=dates
+    )
+    fx = pd.Series([5.0, 5.1, 5.2, 5.0, 4.9], index=dates)
+
+    brl = convert_ohlc_to_brl(ohlc_usd, fx)
+
+    pd.testing.assert_series_equal(
+        ohlc_usd["High"] / ohlc_usd["Low"], brl["High"] / brl["Low"], check_names=False
+    )
 
 
 def test_compute_return_lags_matches_manual_log_diff():
@@ -78,8 +137,10 @@ def test_garch_walkforward_has_nan_before_burn_in_and_values_after():
 
 
 def test_garch_walkforward_forecast_does_not_use_future_data():
-    """Alterar os retornos bem depois do primeiro refit não pode mudar a vol
-    condicional já calculada antes desse ponto (sem lookahead)."""
+    """Alterar um retorno em t não pode mudar a vol condicional calculada
+    para qualquer instante <= t (h_t só depende de r's e h's anteriores a t —
+    sem lookahead), mesmo dentro da mesma janela de refit (a recursão diária
+    reage ao choque assim que ele é observado, não só no próximo refit)."""
     dates = pd.bdate_range("2015-01-01", periods=700)
     rng = np.random.default_rng(2)
     returns = pd.Series(rng.normal(scale=0.01, size=700), index=dates)
@@ -87,9 +148,10 @@ def test_garch_walkforward_forecast_does_not_use_future_data():
     cond_vol_full = garch_conditional_vol_walkforward(returns, refit_every=21, burn_in=500)
 
     returns_altered = returns.copy()
-    returns_altered.iloc[600:] = returns_altered.iloc[600:] * 5  # choque grande só no futuro distante
+    returns_altered.iloc[600:] = returns_altered.iloc[600:] * 5  # choque grande a partir da posição 600
     cond_vol_altered = garch_conditional_vol_walkforward(returns_altered, refit_every=21, burn_in=500)
 
-    # refits acontecem a cada 21 dias a partir do dia 500 (500, 521, ..., 584, 605, ...);
-    # o refit em 605 é o primeiro cuja janela de treino [:605] já inclui o choque em 600-604
-    pd.testing.assert_series_equal(cond_vol_full.iloc[:605], cond_vol_altered.iloc[:605])
+    # h_600 depende só de r_599 e anteriores (nenhum deles alterado) — tem que casar exatamente
+    pd.testing.assert_series_equal(cond_vol_full.iloc[:601], cond_vol_altered.iloc[:601])
+    # h_601 já depende de r_600 (alterado) — tem que divergir
+    assert cond_vol_full.iloc[601] != cond_vol_altered.iloc[601]

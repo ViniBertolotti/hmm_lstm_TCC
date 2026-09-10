@@ -45,3 +45,20 @@ def test_stationarity_report_flags_random_walk_as_nonstationary():
 
     assert report.loc["trend_nonstationary", "stationary_both_tests"] == False  # noqa: E712
     assert report.loc["x1", "stationary_both_tests"] == True  # noqa: E712
+
+
+def test_stationarity_report_handles_allnan_or_constant_column_gracefully():
+    """Regressão: BRL=X não tem volume real no Yahoo -> volume_normalized fica
+    todo NaN para esse ativo. adfuller quebra com array vazio; não pode
+    derrubar o relatório inteiro por causa de uma coluna não aplicável."""
+    df = _synthetic_features()
+    df["all_nan"] = np.nan
+    df["constant"] = 5.0
+
+    report = stationarity_report(df)
+
+    assert report.loc["all_nan", "stationary_both_tests"] == False  # noqa: E712
+    assert report.loc["constant", "stationary_both_tests"] == False  # noqa: E712
+    assert pd.isna(report.loc["all_nan", "adf_pvalue"])
+    # as demais colunas continuam calculadas normalmente
+    assert report.loc["x1", "stationary_both_tests"] == True  # noqa: E712
