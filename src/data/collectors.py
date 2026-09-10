@@ -78,57 +78,34 @@ def collect_futures_raw(ticker: str, start: str, end: str) -> pd.DataFrame:
     return df[["Open", "High", "Low", "Close", "Volume"]].dropna(how="all")
 
 
-def _find_roll_jump_dates(close: pd.Series, jump_threshold: float) -> list:
-    """Datas com log-retorno acima de `jump_threshold` (mais recentes primeiro)."""
-    log_ret = np.log(close.dropna().sort_index()).diff()
-    return sorted(log_ret[log_ret.abs() > jump_threshold].index, reverse=True)
+def adjust_futures_roll(prices: pd.Series, *, roll_factors: pd.Series | None = None) -> pd.Series:
+    """Back-adjustment com fatores verificados (novo/antigo na MESMA data).
 
-
-def adjust_futures_roll(prices: pd.Series, jump_threshold: float = 0.08) -> pd.Series:
-    """Aplica back-adjustment multiplicativo (por razão) a uma série contínua de futuro.
-
-    O Yahoo Finance entrega o contrato contínuo sem ajustar as datas de rolagem,
-    o que produz saltos de preço que não são retorno real e contaminam
-    retornos/GARCH/HMM. Detecta esses saltos via log-retorno acima de
-    `jump_threshold` e reescala multiplicativamente todo o histórico anterior a
-    cada rolagem, preservando exatamente os retornos percentuais/log em toda a
-    série e o nível do contrato mais recente.
-
-    Um ajuste *aditivo* (deslocar por uma diferença fixa) foi tentado primeiro,
-    mas em séries de ~20 anos com muitas rolagens (ZS=F, KC=F) o deslocamento
-    acumulado empurra os preços do início da amostra para valores negativos —
-    inviável para Garman-Klass/Corwin-Schultz, que precisam de log(High/Low) e
-    log(Close/Open). O ajuste por razão nunca produz preços negativos (é uma
-    multiplicação por um fator positivo) e é o método padrão da literatura para
-    esse cenário.
+    O índice contém a primeira data do novo contrato. Sem fatores, preserva
+    a série. Nunca infere rolagem a partir do retorno entre dois dias.
+    Não fornece, por si só, uma série histórica point-in-time.
     """
-    adjusted = prices.dropna().sort_index().copy()
-    for roll_date in _find_roll_jump_dates(adjusted, jump_threshold):
-        pos = adjusted.index.get_loc(roll_date)
-        if pos == 0:
-            continue
-        ratio = adjusted.iloc[pos] / adjusted.iloc[pos - 1]
-        adjusted.iloc[:pos] = adjusted.iloc[:pos] * ratio
+    adjusted = prices.sort_index().copy()
+    if adjusted.index.has_duplicates:
+        raise ValueError("Datas duplicadas nos preços.")
+    if roll_factors is None:
+        return adjusted
+    factors = roll_factors.sort_index(ascending=False)
+    if factors.index.has_duplicates or not np.isfinite(factors).all() or (factors <= 0).any():
+        raise ValueError("Fatores de rolagem devem ser únicos, finitos e positivos.")
+    for date, factor in factors.items():
+        if date not in adjusted.index or date == adjusted.index[0] or pd.isna(adjusted.loc[date]):
+            raise ValueError(f"Data de rolagem inválida: {date}")
+        adjusted.loc[adjusted.index < date] *= factor
     return adjusted
 
 
-def adjust_ohlc_roll(ohlc: pd.DataFrame, jump_threshold: float = 0.08) -> pd.DataFrame:
-    """Aplica o mesmo ajuste de `adjust_futures_roll` a Open/High/Low/Close juntos.
-
-    As rolagens são detectadas a partir do Close (mesma lógica de
-    `adjust_futures_roll`); o mesmo fator multiplicativo é aplicado às quatro
-    colunas de preço igualmente, para a barra OHLC continuar consistente
-    (ex.: o Close ajustado não pode ficar fora do intervalo High/Low ajustados)
-    e sempre positiva. Volume não é alterado.
-    """
-    adjusted = ohlc.dropna(subset=["Close"]).sort_index().copy()
-    price_cols = [c for c in ("Open", "High", "Low", "Close") if c in adjusted.columns]
-    for roll_date in _find_roll_jump_dates(adjusted["Close"], jump_threshold):
-        pos = adjusted.index.get_loc(roll_date)
-        if pos == 0:
-            continue
-        ratio = adjusted["Close"].iloc[pos] / adjusted["Close"].iloc[pos - 1]
-        adjusted.iloc[:pos, adjusted.columns.get_indexer(price_cols)] *= ratio
+def adjust_ohlc_roll(ohlc: pd.DataFrame, *, roll_factors: pd.Series | None = None) -> pd.DataFrame:
+    """Aplica fatores documentados às quatro colunas de preço; preserva volume."""
+    adjusted = ohlc.sort_index().copy()
+    for col in ("Open", "High", "Low", "Close"):
+        if col in adjusted:
+            adjusted[col] = adjust_futures_roll(adjusted[col], roll_factors=roll_factors)
     return adjusted
 
 

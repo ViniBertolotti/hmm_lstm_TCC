@@ -28,12 +28,12 @@ def get_b3_trading_days(start: str, end: str) -> pd.DatetimeIndex:
 def align_and_fill_ohlc(ohlc: pd.DataFrame, start: str, end: str, max_gap_days: int = 3) -> pd.DataFrame:
     """Alinha um OHLC ao calendário real de pregão da B3 e trata missing.
 
-    Só usa informação passada: preenche buracos de até `max_gap_days` dias de
+    Só usa informação passada: preenche os primeiros `max_gap_days` dias de
     pregão por *forward-fill* (carrega o último preço observado — o retorno
     do ativo nesse dia fica implicitamente 0%, uma aproximação honesta para
     "não sabemos o que aconteceu"). Nunca interpola linearmente nem usa
     *backward-fill* — isso usaria um preço futuro para preencher o passado
-    (lookahead bias). Buracos maiores que `max_gap_days` ficam `NaN` (mesma
+    (lookahead bias). A partir do dia seguinte ao limite, mantém `NaN` (mesma
     política de "NaN estrutural, trim só no dataset final de modelagem" já
     usada para o burn-in do GARCH e para o `implied_vol_br` pré-2015).
 
@@ -45,17 +45,14 @@ def align_and_fill_ohlc(ohlc: pd.DataFrame, start: str, end: str, max_gap_days: 
     aligned = ohlc.reindex(trading_days)
 
     price_cols = [c for c in _PRICE_COLS if c in aligned.columns]
-    is_missing = aligned[price_cols].isna().all(axis=1)
-
-    # ffill(limit=N) preencheria só os N primeiros dias de QUALQUER buraco, mesmo um longo.
-    # Aqui o critério é "tudo ou nada" por buraco: agrupa runs consecutivos de dias faltantes
-    # e só preenche os runs com no máximo `max_gap_days` dias no total.
-    run_id = (is_missing != is_missing.shift()).cumsum()
-    run_length = is_missing.groupby(run_id).transform("sum")
-    fillable = is_missing & (run_length <= max_gap_days)
-
-    ffilled = aligned[price_cols].ffill()
-    aligned.loc[fillable, price_cols] = ffilled.loc[fillable]
+    if not price_cols or max_gap_days < 0:
+        raise ValueError("Informe colunas OHLC e max_gap_days >= 0.")
+    is_missing = aligned[price_cols].isna().any(axis=1)
+    # Uma barra parcial não fornece OHLC coerente; trate-a como ausente.
+    aligned.loc[is_missing, price_cols] = np.nan
+    if max_gap_days:
+        aligned[price_cols] = aligned[price_cols].ffill(limit=max_gap_days)
+    fillable = is_missing & aligned[price_cols].notna().all(axis=1)
 
     if "Volume" in aligned.columns:
         aligned.loc[fillable, "Volume"] = aligned.loc[fillable, "Volume"].fillna(0.0)
@@ -63,13 +60,29 @@ def align_and_fill_ohlc(ohlc: pd.DataFrame, start: str, end: str, max_gap_days: 
     return aligned
 
 
+def equal_weighted_portfolio_return(log_returns: pd.DataFrame) -> pd.Series:
+    """Log-retorno de índice proxy com pesos iguais, rebalanceado diariamente.
+
+    Agrega retornos simples antes de aplicar log1p. Não redistribui pesos
+    quando falta um constituinte. Futuros/FX são proxies de preço, não P&L
+    de contratos com margem, colateral ou custos de rolagem.
+    """
+    if log_returns.empty or log_returns.columns.has_duplicates:
+        raise ValueError("Informe retornos com colunas únicas e pelo menos uma linha.")
+    if np.isinf(log_returns.to_numpy()).any():
+        raise ValueError("Retornos infinitos não são válidos.")
+    simple = np.expm1(log_returns)
+    return np.log1p(simple.sum(axis=1, min_count=log_returns.shape[1]) / log_returns.shape[1]).rename("return_1d")
+
+
 def convert_ohlc_to_brl(ohlc_usd: pd.DataFrame, fx_close_brl_per_usd: pd.Series) -> pd.DataFrame:
     """Converte um OHLC em USD para BRL-equivalente usando o câmbio do próprio dia.
 
     Preco_BRL(t) = Preco_USD(t) × FX(t). Como é o mesmo FX aplicado a
-    Open/High/Low/Close do mesmo dia, razões intradiárias (Garman-Klass,
-    Corwin-Schultz) não mudam — mas retornos, GARCH e skew/curtose passam a
-    incorporar a volatilidade cambial, essencial para medir risco na
+    Open/High/Low/Close do mesmo dia, razões intradiárias (Garman-Klass) não mudam — mas retornos, GARCH e skew/curtose passam a
+    incorporar a volatilidade cambial. Corwin-Schultz pode mudar: usa extremos de
+    dois dias. O fechamento cambial não reconstrói extremos negociáveis em BRL.
+    Essa é uma aproximação para medir risco na
     perspectiva de um investidor brasileiro (ver `PLANO.md` > Pendências).
     """
     converted = ohlc_usd.copy()
@@ -152,7 +165,7 @@ def garch_conditional_vol_walkforward(
     A cada `refit_every` pregões (padrão: mensal), reestima (ω, α, β) por
     máxima verossimilhança usando só dados até aquele ponto. Entre um refit e
     o próximo, a variância condicional segue a recursão
-    `h_t = ω + α·r_{t-1}² + β·h_{t-1}` **dia a dia, com os retornos
+    `h_t = ω + α·(r_{t-1}-μ)² + β·h_{t-1}` **dia a dia, com os retornos
     realmente observados** — mais fiel à dinâmica do processo do que um
     forecast multi-passos-à-frente (que diverge do caminho real quando há
     choques entre um refit e o outro), e ainda assim causal: h_t só depende
@@ -167,18 +180,23 @@ def garch_conditional_vol_walkforward(
         train = returns_pct.iloc[:start_idx]
         model = arch_model(train, vol="Garch", p=1, q=1, dist="normal", rescale=False)
         result = model.fit(disp="off")
+        if result.convergence_flag != 0:
+            raise RuntimeError(f"GARCH não convergiu no refit {returns.index[start_idx]}.")
 
         omega = result.params["omega"]
         alpha1 = result.params["alpha[1]"]
         beta1 = result.params["beta[1]"]
+        mu = result.params["mu"]
 
         h_prev = result.conditional_volatility.iloc[-1] ** 2  # h_{start_idx-1}, do fit in-sample
         r_prev = train.iloc[-1]  # r_{start_idx-1}, observado
 
         horizon = min(refit_every, len(returns) - start_idx)
         h_path = np.empty(horizon)
+        first_forecast = float(result.forecast(horizon=1, reindex=False).variance.iloc[-1, 0])
         for step in range(horizon):
-            h_t = omega + alpha1 * r_prev**2 + beta1 * h_prev
+            # Usa a inicialização/backcast do próprio arch no primeiro passo.
+            h_t = first_forecast if step == 0 else omega + alpha1 * (r_prev - mu)**2 + beta1 * h_prev
             h_path[step] = h_t
             r_prev = returns_pct.iloc[start_idx + step]  # retorno recém-realizado nesse dia
             h_prev = h_t

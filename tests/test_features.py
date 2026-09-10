@@ -10,6 +10,7 @@ from src.data.features import (
     garch_conditional_vol_walkforward,
     garman_klass_volatility,
     get_b3_trading_days,
+    equal_weighted_portfolio_return,
 )
 
 
@@ -48,7 +49,34 @@ def test_align_and_fill_ohlc_forward_fills_short_gaps_only():
     assert filled["Close"].iloc[2:4].notna().all()  # buraco curto: preenchido
     assert (filled["Close"].iloc[2:4] == filled["Close"].iloc[1]).all()  # ffill, não interpolação
     assert filled["Volume"].iloc[2:4].eq(0.0).all()  # sem volume nos dias "criados"
-    assert filled["Close"].iloc[5:10].isna().all()  # buraco longo: continua NaN
+    assert filled["Close"].iloc[5:8].eq(filled["Close"].iloc[4]).all()
+    assert filled["Close"].iloc[8:10].isna().all()
+
+
+def test_fill_is_identical_when_future_gap_length_changes():
+    dates = get_b3_trading_days("2021-01-04", "2021-01-20")
+    raw = pd.DataFrame({"Close": 100.}, index=dates).drop(dates[1:6])
+    full = align_and_fill_ohlc(raw, dates[0], dates[-1])
+    for end in dates:
+        prefix = align_and_fill_ohlc(raw.loc[:end], dates[0], end)
+        pd.testing.assert_frame_equal(prefix, full.loc[:end])
+
+
+def test_portfolio_aggregates_simple_returns_and_keeps_fixed_composition():
+    logs = np.log1p(pd.DataFrame({"a": [.5, .1], "b": [-.5, np.nan]}))
+    result = equal_weighted_portfolio_return(logs)
+    assert result.iloc[0] == pytest.approx(0.)
+    assert pd.isna(result.iloc[1])
+
+
+def test_garch_first_forecast_matches_arch_with_nonzero_mean():
+    from arch import arch_model
+    returns = pd.Series(np.random.default_rng(8).normal(.02, .01, 550))
+    fitted = arch_model(returns.iloc[:500] * 100, vol="Garch", p=1, q=1,
+                        dist="normal", rescale=False).fit(disp="off")
+    expected = np.sqrt(fitted.forecast(horizon=1).variance.iloc[-1, 0]) / 100
+    actual = garch_conditional_vol_walkforward(returns)
+    assert actual.iloc[500] == pytest.approx(expected, rel=1e-8)
 
 
 def test_align_and_fill_ohlc_never_uses_future_prices():
