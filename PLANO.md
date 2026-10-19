@@ -58,6 +58,35 @@ testes simulados não demonstram validade das séries ou desempenho financeiro.
   sucesso científico. Auditoria em `reports/tables/hypotheses_audit.json`;
   documento original preservado.
 
+## Primeira rodada completa fora da amostra (19/10/2026)
+
+`scripts/run_walk_forward.py` + `scripts/evaluate_walk_forward.py`: 23 janelas, 2.717 dias de
+teste (01/10/2012-27/03/2024), futuros ajustados por rolagem, VaR/ES por simulação histórica
+filtrada (erros da calibração padronizados pela vol EWMA λ=0,94 da carteira; na HMM-LSTM,
+cauda do regime atual quando há ≥100 erros — usada em 40% dos dias, nos outros 60% cai na
+cauda conjunta). Referência: média zero + mesma FHS-EWMA. **O MS-GARCH ainda não entrou.**
+Tabelas em `reports/tables/walk_forward/`.
+
+| | HMM-LSTM | LSTM | FHS-EWMA |
+|---|---|---|---|
+| Violações VaR 95%, geral (esperado 5%) | 5,2% (Kupiec p=0,59) | 5,2% | 5,1% |
+| Violações VaR 99%, geral (esperado 1%) | 1,1% (p=0,59) | 1,1% | 1,1% |
+| VaR 95%, regime de estresse (289 dias) | 8,0% (p=0,03) | 7,6% (p=0,06) | 6,6% (p=0,24) |
+| VaR 99%, regime de estresse | 2,4% (p=0,04) | 2,4% (p=0,04) | 2,8% (p=0,01) |
+
+- **H1** compatível: cobertura geral próxima da nominal nos três modelos, sem agrupamento de
+  violações (Christoffersen p > 0,4).
+- **H2** não sustentada: todos subestimam o risco em estresse; a HMM-LSTM não é melhor que a
+  referência (a 95% é pior). Acerbi-Székely negativo no estresse (-2,2 a -2,5 a 99%), sem
+  p-valor (trajetórias sob H0 ainda não geradas).
+- **H3** rejeitada a 95%: nos regimes calmos a HMM-LSTM tem escore quantílico pior que a LSTM
+  e que a referência (Diebold-Mariano p≈0,006); a 99%, sem diferença detectável.
+- Leitura provável: a LSTM não prevê o retorno diário melhor que zero (MSE maior que a média
+  zero em quase todas as janelas), então a média prevista só acrescenta ruído ao VaR.
+- **Não ajustar o modelo olhando para o teste** para fazer as hipóteses passarem: invalida a
+  conclusão. Qualquer variação (sem cauda por regime, outro mínimo, LSTM prevendo
+  volatilidade em vez de média) entra como análise de sensibilidade declarada como tal.
+
 ## Replanejamento (19/10/2026)
 
 Em 19/10 as Semanas 1-4 estavam prontas (exceto o documento) e as Semanas 5-8 não tinham
