@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+<<<<<<< HEAD
 from src.data.collectors import adjust_futures_roll, adjust_ohlc_roll, load_public_futures_close
 
 
@@ -18,6 +19,9 @@ def test_load_public_futures_close_returns_close_column_without_gaps(tmp_path):
     assert list(result.columns) == ["Close"]
     assert list(result.index) == [dates[0], dates[2], dates[3]]  # ausência fica para align_and_fill_ohlc
     assert result.loc[dates[3], "Close"] == 99.5
+=======
+from src.data.collectors import adjust_futures_roll, adjust_ohlc_roll
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 
 
 def test_large_market_loss_is_preserved_without_roll_evidence():

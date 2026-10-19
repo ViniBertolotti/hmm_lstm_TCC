@@ -183,11 +183,17 @@ fica como referência; vale este:
 ## Semana 1 — 26/08 a 01/09 — Setup e ajuste do documento
 - [x] Criar/validar ambiente Python (`requirements.txt`) — ambiente R (`MSGARCH`) fica para a Semana 8
 - [x] Confirmar/ajustar lista de 7 ativos agro em `config.yaml`
+<<<<<<< HEAD
 - [~] Atualizar título do TCC para refletir o setor agro/commodities — proposta em
       `docs/projeto_tcc_agro_rev1.docx` (controle de alterações), falta revisar e validar com o orientador
 - [~] Reescrever Cap. 1 (problema de pesquisa, objetivos, justificativa) trocando a carteira
       genérica pela carteira agro — rev1 no mesmo arquivo; 3 comentários pendentes (fontes do
       PIB/exportações do agro, número do câmbio em 2020, mudanças societárias JBS/Marfrig)
+=======
+- [ ] Atualizar título do TCC para refletir o setor agro/commodities
+- [ ] Reescrever Cap. 1 (problema de pesquisa, objetivos, justificativa) trocando a carteira
+      genérica pela carteira agro — manter H1/H2/H3 e a estrutura de pergunta de pesquisa
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 - [x] Copiar o pré-projeto original para `docs/pre_projeto_original.docx`
 
 ## Semana 2 — 02 a 08/09 — Coleta de dados
@@ -329,6 +335,7 @@ fica como referência; vale este:
   (Broad Trade-Weighted U.S. Dollar Index) como proxy — metodologicamente equivalente
   na literatura, mas não é o mesmo índice/base. Documentar essa ressalva no Cap. 3
   (Metodologia) quando o documento for revisado.
+<<<<<<< HEAD
 - **Rolagem dos futuros — resolvida com a base pública do pysystemtrade (19/10).** O Yahoo e
   o genérico `S 1 COMB` / `KC1 COMB` do Bloomberg não são ajustados (idênticos em ~100% das
   datas). `scripts/build_public_futures.py` baixa os CSVs "multiple prices" do pysystemtrade
@@ -342,6 +349,14 @@ fica como referência; vale este:
   (3) o autor parou de atualizar a base citando dúvidas sobre licenciamento dos dados
   redistribuídos — uso acadêmico com citação, vale comentar com o orientador; (4) o horário
   23:00 da fonte é nocional. Os exports do Bloomberg ficam em `data/raw/` só como registro.
+=======
+- **Rolagem dos futuros — removida a heurística de log-retorno > 8%**:
+  o notebook 02 usa `futures_raw_yahoo.parquet`. Ajustes exigem fatores explícitos
+  (novo/antigo cotados na mesma data). Falta obter metadados de contratos e validar
+  os fatores; a série bruta pode conter descontinuidades de rolagem, portanto os
+  resultados continuam exploratórios. O antigo `futures_adjusted_yahoo.parquet`
+  não é mais consumido pelo notebook 02.
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 - **Cap. 1 do `.docx` (pivô agro)**: `docs/pre_projeto_original.docx` ainda está na
   versão genérica ("carteiras brasileiras"), sem menção a agro/commodities/tickers.
   Reescrita adiada de propósito para depois da coleta de dados (decisão desta rodada).
@@ -416,6 +431,7 @@ fica como referência; vale este:
 - **Resultados HMM**: números anteriores à correção de dados estão arquivados em
   `reports/archive/`. Consultar CSVs regenerados e `rebuild_manifest.json`; não
   reutilizar os antigos 98%/75% como resultados corrigidos.
+<<<<<<< HEAD
   **Rodada com futuros ajustados (19/10, in-sample, 2007-06 a 2024-03):** BIC e AIC escolhem
   4 estados; o bootstrap confirma 4 estados em 98% das reamostragens, mas a sequência de
   regimes é só moderadamente estável (concordância ~69%, ARI ~0,47). O estado de maior
@@ -425,6 +441,8 @@ fica como referência; vale este:
   direção), e a carteira em reais tem hedge natural — dólar e commodities convertidas
   sobem nesses episódios, e SLC/JBS ganharam ~0,3%/dia. Ponto para a discussão: na
   carteira do agro, "estresse" não equivale a perda.
+=======
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 - **Bootstrap**: blocos não atravessam lacunas e são sequências independentes no fit.
   Compara os modelos na cronologia original; concordância direta usa somente o
   mesmo número de estados, ARI inclui todos os sucessos. Falhas são contadas.

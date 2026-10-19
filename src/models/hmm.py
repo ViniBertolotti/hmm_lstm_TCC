@@ -16,6 +16,7 @@ import pandas as pd
 from hmmlearn.hmm import GaussianHMM
 from sklearn.metrics import adjusted_rand_score
 from scipy.special import logsumexp as _logsumexp
+<<<<<<< HEAD
 from threadpoolctl import threadpool_limits
 
 
@@ -42,6 +43,8 @@ class _BatchedEmissionHMM(GaussianHMM):
         start = self._emission_offset
         self._emission_offset += len(X)
         return self._emission_cache[start:self._emission_offset]
+=======
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 
 
 def _sequence_lengths(n_obs: int, lengths=None) -> list[int]:
@@ -59,7 +62,10 @@ def _effectively_converged(model: GaussianHMM) -> bool:
     return 0 <= gain < model.tol
 
 
+<<<<<<< HEAD
 @threadpool_limits.wrap(limits=1, user_api="blas")
+=======
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 def fit_gaussian_hmm(
     observations: np.ndarray,
     n_states: int,
@@ -83,7 +89,11 @@ def fit_gaussian_hmm(
     best_model, best_score = None, -np.inf
 
     for _ in range(n_init):
+<<<<<<< HEAD
         model = _BatchedEmissionHMM(
+=======
+        model = GaussianHMM(
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
             n_components=n_states,
             covariance_type="full",
             n_iter=n_iter,

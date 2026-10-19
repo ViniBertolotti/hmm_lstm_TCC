@@ -147,6 +147,7 @@ def corwin_schultz_spread(ohlc: pd.DataFrame) -> pd.Series:
     return spread.clip(lower=0).rename("corwin_schultz_spread")
 
 
+<<<<<<< HEAD
 def ewma_volatility(return_1d: pd.Series, lam: float = 0.94, warmup: int = 21) -> pd.Series:
     """Volatilidade diária EWMA (RiskMetrics) prevista para t+1 com retornos até t.
 
@@ -171,6 +172,8 @@ def ewma_volatility(return_1d: pd.Series, lam: float = 0.94, warmup: int = 21) -
     return pd.Series(out, index=return_1d.index, name="ewma_vol")
 
 
+=======
+>>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 def rolling_skew_kurtosis(return_1d: pd.Series, windows: tuple[int, ...] = (21, 63)) -> pd.DataFrame:
     """Assimetria e curtose móveis do retorno diário."""
     out = {}
