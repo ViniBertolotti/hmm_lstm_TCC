@@ -113,6 +113,26 @@ def quantile_score(losses, var, confidence):
     return (confidence-(losses < var))*difference
 
 
+def fz0_score(losses, var, es, confidence):
+    """Escore conjunto VaR+ES (FZ0; Fissler e Ziegel, 2016; Patton, Ziegel e Chen, 2019).
+
+    Na escala do retorno, Y=-L, v=-VaR, e=-ES e a=1-c:
+    S = -1{Y<=v}(v-Y)/(a·e) + v/e + ln(-e) - 1. Menor é melhor. Exige ES>0.
+    """
+    confidence = _confidence(confidence)
+    losses, var, es = (np.asarray(x, dtype=float) for x in (losses, var, es))
+    if losses.ndim != 1 or losses.shape != var.shape or losses.shape != es.shape or not len(losses):
+        raise ValueError("Perdas, VaR e ES devem ter vetores pareados não vazios.")
+    if not np.isfinite(losses).all() or not np.isfinite(var).all() or not np.isfinite(es).all():
+        raise ValueError("Escore exige valores finitos.")
+    if (es <= 0).any():
+        raise ValueError("FZ0 exige ES positivo na convenção de perdas.")
+    tail = 1-confidence
+    y, v, e = -losses, -var, -es
+    hit = (y <= v).astype(float)
+    return -hit*(v-y)/(tail*e) + v/e + np.log(-e) - 1
+
+
 def diebold_mariano(loss_a, loss_b, *, sessions, max_lag, small_sample_correction=False):
     """DM bilateral para perdas comparáveis de uma sessão, com HAC Bartlett.
 

@@ -28,8 +28,9 @@ testes simulados não demonstram validade das séries ou desempenho financeiro.
   para calibração dentro dos cinco anos de desenvolvimento reduz o treino
   efetivo; esse protocolo precisa ser explicitado. A cauda empírica a 99% é
   pequena e não sustenta conclusões fortes com essa amostra. Dispersão do
-  dropout não equivale à distribuição das perdas. Ainda faltam as execuções
-  financeiras e a avaliação da cobertura fora da amostra.
+  dropout não equivale à distribuição das perdas. Uma rodada exploratória já
+  produziu as previsões descritas abaixo; a validação final da base e a comparação
+  completa com MS-GARCH continuam pendentes.
 - **R/MS-GARCH:** adiado pelo usuário até obter liberação do TI. O piloto
   preparado ainda não foi executado; não declarar o benchmark validado.
 - **Fonte e escopo:** usar alternativas sem custo, preservar a especificação
@@ -58,10 +59,11 @@ testes simulados não demonstram validade das séries ou desempenho financeiro.
   sucesso científico. Auditoria em `reports/tables/hypotheses_audit.json`;
   documento original preservado.
 
-## Primeira rodada completa fora da amostra (19/10/2026)
+## Rodada exploratória fora da amostra (19/10/2026)
 
 `scripts/run_walk_forward.py` + `scripts/evaluate_walk_forward.py`: 23 janelas, 2.717 dias de
-teste (01/10/2012-27/03/2024), futuros ajustados por rolagem, VaR/ES por simulação histórica
+teste (01/10/2012-27/03/2024), sobre a base disponível cuja validação final dos futuros e
+rolagens permanece pendente. VaR/ES por simulação histórica
 filtrada (erros da calibração padronizados pela vol EWMA λ=0,94 da carteira; na HMM-LSTM,
 cauda do regime atual quando há ≥100 erros — usada em 40% dos dias, nos outros 60% cai na
 cauda conjunta). Referência: média zero + mesma FHS-EWMA. **O MS-GARCH ainda não entrou.**
@@ -74,18 +76,92 @@ Tabelas em `reports/tables/walk_forward/`.
 | VaR 95%, regime de estresse (289 dias) | 8,0% (p=0,03) | 7,6% (p=0,06) | 6,6% (p=0,24) |
 | VaR 99%, regime de estresse | 2,4% (p=0,04) | 2,4% (p=0,04) | 2,8% (p=0,01) |
 
-- **H1** compatível: cobertura geral próxima da nominal nos três modelos, sem agrupamento de
-  violações (Christoffersen p > 0,4).
-- **H2** não sustentada: todos subestimam o risco em estresse; a HMM-LSTM não é melhor que a
-  referência (a 95% é pior). Acerbi-Székely negativo no estresse (-2,2 a -2,5 a 99%), sem
-  p-valor (trajetórias sob H0 ainda não geradas).
-- **H3** rejeitada a 95%: nos regimes calmos a HMM-LSTM tem escore quantílico pior que a LSTM
-  e que a referência (Diebold-Mariano p≈0,006); a 99%, sem diferença detectável.
-- Leitura provável: a LSTM não prevê o retorno diário melhor que zero (MSE maior que o da média
-  zero em 36 dos 46 ajustes, somando LSTM e HMM-LSTM), então a média prevista só acrescenta ruído ao VaR.
+- **H1, leitura exploratória:** cobertura geral próxima da nominal e ausência de rejeição
+  pelos testes empregados. Isso não prova calibração correta, independência ou equivalência.
+  A 99%, contagens esparsas limitam a aproximação assintótica. A conclusão final depende da base.
+- **H2, leitura exploratória:** as taxas de violações aumentam no estresse. A referência de
+  média zero tem menor taxa que a HMM-LSTM a 95%; essa comparação não substitui o MS-GARCH.
+  Estatísticas Acerbi–Székely negativas indicam um diagnóstico a investigar, sem p-valor porque
+  trajetórias sob H0 não foram geradas. H2 frente ao benchmark continua pendente.
+- **H3 não foi formalmente avaliada:** nos demais regimes, o escore quantílico da HMM-LSTM
+  a 95% é maior que o da LSTM e o da referência (DM bilateral p≈0,006 e p≈0,005).
+  A 99%, não se detectou diferença pelos critérios empregados. Sem margem e procedimento
+  predefinidos, não cabe declarar confirmação ou rejeição de não inferioridade econômica.
+- Hipótese explicativa a examinar: a previsão da média pode acrescentar ruído ao risco.
+  O MSE é maior que o da média zero em 36 dos 46 ajustes registrados. Isso não isola o
+  efeito da rede, pois a HMM-LSTM também usa calibração por regime, diferente da LSTM.
 - **Não ajustar o modelo olhando para o teste** para fazer as hipóteses passarem: invalida a
   conclusão. Qualquer variação (sem cauda por regime, outro mínimo, LSTM prevendo
   volatilidade em vez de média) entra como análise de sensibilidade declarada como tal.
+
+A avaliação auditada está em `reports/tables/walk_forward/evaluation_v2/`. Confere
+manifesto, janelas, unidades, horizonte e pareamento, preserva lacunas e inclui ICs,
+contagens de transições e limitações. Os 27 arquivos anteriores e suas métricas foram
+preservados. A verificação relevante passou em 20 testes; não autentica os preços,
+os horários de publicação ou a execução histórica do treinamento.
+
+## Rodada com o benchmark MS-GARCH (19/10/2026)
+
+R 4.6.1 + MSGARCH instalados. `scripts/msgarch_inputs.py` → `r/msgarch_benchmark.R` →
+`scripts/msgarch_forecasts.py` → `scripts/evaluate_walk_forward.py` (saída em
+`reports/tables/walk_forward/evaluation_v3/`). MS-GARCH(1,1) Student-t ajustado por janela só
+nos 5 anos de desenvolvimento, K∈{2,3} pelo BIC (K=2 sempre), parâmetros congelados no teste,
+previsão de t com dados até t−1 (verificado). VaR/ES por FHS com os resíduos padronizados do
+desenvolvimento, como no pré-projeto; o paramétrico Student-t fica como sensibilidade (mais
+conservador: 4,2% e 0,74% de violações). Mesmos 2.717 alvos dos outros modelos.
+Re-execução do walk-forward reproduziu as previsões bit a bit e salvou os erros da calibração,
+usados para o p-valor Acerbi–Székely (999 trajetórias sob H0, VaR/ES fixos) e o escore FZ0.
+
+| | HMM-LSTM | LSTM | FHS-EWMA | MS-GARCH |
+|---|---|---|---|---|
+| VaR 95%, geral | 5,2% (p=0,59) | 5,2% | 5,1% | 4,7% (p=0,43) |
+| VaR 99%, geral | 1,1% (p=0,59) | 1,1% | 1,1% | 1,0% (p=0,82) |
+| VaR 95%, estresse (289 dias) | 8,0% (p=0,03) | 7,6% | 6,6% | 6,6% (p=0,24) |
+| VaR 99%, estresse | 2,4% (p=0,04) | 2,4% | 2,8% | 2,1% (p=0,11) |
+| ES 99%, geral: p A-S | 0,005 | 0,008 | 0,006 | 0,61 |
+
+- **H1 (original: cobertura compatível e desempenho superior ou equivalente ao MS-GARCH):**
+  cobertura compatível nos quatro modelos; mas o MS-GARCH tem escore quantílico e FZ0
+  significativamente melhores que a HMM-LSTM (DM p≈0,001 a 95% e 99%). Parte de cobertura
+  sustentada, parte comparativa não.
+- **H2 (estresse, menor erro de cobertura que o MS-GARCH):** não sustentada. HMM-LSTM 8,0% vs
+  6,6% (95%) e 2,4% vs 2,1% (99%); Kupiec rejeita a HMM-LSTM e não o MS-GARCH. Diferenças de
+  escore no estresse não significativas (DM p≈0,5): poucos dias.
+- **H3 (calmaria, sem perda significativa frente ao benchmark pelo DM):** rejeitada. A HMM-LSTM
+  é pior que o MS-GARCH (DM p<0,001 a 95% e 99%, nos dois escores).
+- ES: só o MS-GARCH não subestima o ES no geral; no estresse, todos subestimam (p<0,04).
+- Leitura: o que mais pesa é a dinâmica de volatilidade. O MS-GARCH também supera a FHS-EWMA
+  de média zero, e a previsão de média da LSTM só piora o escore.
+
+## Pôster da Mostra TCC I preparado em 19/10/2026
+
+- [x] Preencher o template fornecido em cópia separada, mantendo a página A1 vertical,
+  o mestre, o tema, as fontes e os elementos institucionais.
+- [x] Salvar `docs/poster_mostraTCC1_2026-2_agro.pptx`, com gráficos e fluxograma editáveis,
+  resultados explicitamente exploratórios e pendências dos futuros/MS-GARCH visíveis.
+- [x] Conferir a página renderizada, os dados dos gráficos, as planilhas embutidas e
+  a preservação do template. Registro: `reports/tables/poster_mostraTCC1_2026-2_verificacao.json`.
+- [ ] Acrescentar o e-mail do orientador quando ele enviar, conforme resposta do usuário.
+- [ ] Obter a revisão do orientador e a liberação da versão de apresentação.
+
+## Revisão de literatura preparada em 19/10/2026
+
+- [x] Redigir e conferir um capítulo separado com 11 seções e 34 referências:
+  `docs/revisao_literatura_agro_rev2.docx`. Originais preservados.
+- [x] Conferir fontes, alcance das consultas, fórmulas e integridade do texto;
+  verificar visualmente a prévia do DOCX. Registro em
+  `reports/tables/revisao_literatura_verificacao.json`.
+- [x] Integrar o capítulo em nova cópia do projeto e harmonizar introdução,
+  metodologia, remissões e lista geral de referências; substituir os dez
+  apêndices por sínteses conferidas. Arquivo:
+  `docs/projeto_tcc_agro_rev2_literatura.docx`. Sumário nativo preparado para
+  atualização no Word; ver `docs/projeto_tcc_agro_rev2_literatura_notas.txt`.
+  Verificação: `reports/tables/projeto_tcc_agro_rev2_verificacao.json`.
+- [ ] Conferir a paginação final no Word e o manual vigente do curso.
+
+Esta entrega fundamenta o estudo e não constitui conclusão dos experimentos,
+validação dos futuros ou aprovação das hipóteses H1–H3. Notas de integração em
+`docs/revisao_literatura_notas.txt`.
 
 ## Replanejamento (19/10/2026)
 
@@ -160,9 +236,9 @@ fica como referência; vale este:
       para a Semana 6, ver Pendências
 
 ## Semana 5 — 23 a 29/09 — Arquitetura LSTM
-- [ ] `src/models/lstm.py`: LSTM 2 camadas (64/32), dropout 0,3, one-hot do regime como feature,
+- [x] `src/models/lstm.py`: LSTM 2 camadas (64/32), dropout 0,3, one-hot do regime como feature,
       lookback de 42 dias, saída densa, loss MSE, otimizador Adam
-- [ ] Grid search restrito: lookback ∈ {21,42,63}, dropout ∈ {0.2,0.3,0.4},
+- [ ] (não executado; configuração fixa declarada) Grid search restrito: lookback ∈ {21,42,63}, dropout ∈ {0.2,0.3,0.4},
       batch ∈ {32,64}, lr ∈ {0.001,0.0005}
 - [ ] `notebooks/04_lstm_training.ipynb` (parte 1 — arquitetura e grid search)
 
@@ -172,25 +248,31 @@ fica como referência; vale este:
       final (15%) de cada janela de treino. Seleção de features, padronização e HMM (inclusive o
       nº de estados) são ajustados só no treino de cada janela; o regime entra como one-hot do
       filtro Forward.
-- [ ] Early stopping (paciência 15), seeds fixas, `requirements.txt`/versões documentadas
+- [x] Early stopping (paciência 15), seeds fixas, `requirements.txt`/versões documentadas
 - [ ] `notebooks/04_lstm_training.ipynb` (parte 2 — treino final e conjunto de teste lacrado)
 
 ## Semana 7 — 07 a 13/10 — MC Dropout e VaR/ES
-- [ ] `src/models/mc_dropout.py`: 1000 passagens com dropout ativo por instante de previsão
-- [ ] `src/risk/var_es.py`: VaR (quantil empírico) e ES (média das perdas abaixo do quantil),
+- [x] `src/models/mc_dropout.py`: 1000 passagens com dropout ativo por instante de previsão
+- [x] `src/risk/var_es.py`: VaR (quantil empírico) e ES (média das perdas abaixo do quantil),
       condicionais ao regime e não condicionais (95%/99%)
 - [ ] `notebooks/05_mc_dropout_var_es.ipynb`
 
 ## Semana 8 — 14 a 20/10 — Benchmark MS-GARCH (R)
-- [ ] `r/msgarch_benchmark.R`: MS-GARCH(1,1) Student-t, 2–3 estados, seleção por BIC
-- [ ] VaR/ES via FHS; ponte com o pipeline Python (rpy2 ou exportação CSV)
-- [ ] Comparar ativo a ativo (univariado) e em nível de carteira (variâncias ponderadas)
+- [x] `r/msgarch_benchmark.R`: MS-GARCH(1,1) Student-t, 2–3 estados, seleção por BIC (19/10;
+      K=2 em todas as 23 janelas; K=3 falhou em 9 por erro do pacote nos valores iniciais e
+      perdeu no BIC nas 14 em que convergiu)
+- [x] VaR/ES via FHS (vol MS-GARCH × resíduos padronizados do desenvolvimento); ponte por
+      parquet (`scripts/msgarch_inputs.py` → R → `scripts/msgarch_forecasts.py`); paramétrico
+      Student-t guardado como sensibilidade
+- [ ] Comparar ativo a ativo (univariado). Nível de carteira feito sobre o retorno agregado
+      (não por variâncias ponderadas, que ignorariam covariâncias)
 
 ## Semana 9 — 21 a 27/10 — Backtesting
-- [ ] `src/risk/backtesting.py`: Kupiec (1995), Christoffersen (1998),
+- [x] `src/risk/backtests.py`: Kupiec (1995), Christoffersen (1998), Acerbi-Székely com p-valor
+      por simulação sob H0 (`src/risk/null_paths.py`); duração (C-P 2004) não feita —
       Christoffersen-Pelletier (2004, duração), Acerbi-Székely (2014, ES)
-- [ ] Funções de perda: Gonzalez-Rivera/Lee/Mishra (VaR) e Fissler-Ziegel (VaR+ES conjunto)
-- [ ] Teste Diebold-Mariano com correção Harvey-Leybourne-Newbold
+- [x] Funções de perda: escore quantílico (VaR) e FZ0 de Fissler-Ziegel (VaR+ES conjunto)
+- [x] Teste Diebold-Mariano (HAC Bartlett, 5 defasagens; HLN disponível)
 - [ ] `notebooks/06_backtesting.ipynb`
 
 ## Semana 10 — 28/10 a 03/11 — Interpretabilidade e consolidação

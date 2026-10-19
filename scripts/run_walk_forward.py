@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--folds", type=int, nargs="*", help="janelas a rodar (padrão: todas)")
     parser.add_argument("--mc-samples", type=int, default=None)
     parser.add_argument("--min-regime-pool", type=int, default=100)
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "reports/tables/walk_forward")
     args = parser.parse_args()
 
     config = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
@@ -52,7 +53,7 @@ def main():
                               batch_size=32, patience=lstm_cfg["early_stopping_patience"],
                               seed=config["random_seed"])
     mc = args.mc_samples or config["mc_dropout"]["n_samples"]
-    out = ROOT / "reports/tables/walk_forward"
+    out = args.output_dir
     out.mkdir(parents=True, exist_ok=True)
 
     manifests = []
@@ -62,7 +63,7 @@ def main():
         data = build_risk_split_dataset(features, portfolio, split, sessions=sessions, lookback=42,
                                         vif_threshold=config["features"]["vif_threshold"],
                                         hmm_n_init=10, random_state=config["random_seed"])
-        frames = []
+        frames, calibrations = [], []
         for include in (False, True):
             result = run_risk_fold(data, training_config=training, mc_samples=mc, mc_seed=config["random_seed"],
                                    include_regimes=include, confidence_levels=tuple(config["risk"]["confidence_levels"]),
@@ -71,11 +72,14 @@ def main():
             if include:  # a referência é a mesma nos dois; guarda uma vez só
                 forecasts = forecasts[forecasts.model != "zero_mean_reference"]
             frames.append(forecasts)
+            # Erros da calibração: permitem reconstruir a distribuição prevista (p-valor do ES).
+            calibrations.append(result["calibration"].assign(model="hmm_lstm" if include else "lstm", fold=fold))
             manifest = result["manifest"]
             manifests.append({k: manifest[k] for k in ("fold", "model", "risk_method", "n_states", "n_sequences",
                                                        "block_dates", "coverage", "point_mse")}
                              | {"best_epoch": manifest["training"]["best_epoch"]})
         pd.concat(frames).to_parquet(out / f"forecasts_fold{fold:02d}.parquet")
+        pd.concat(calibrations).to_parquet(out / f"calibration_fold{fold:02d}.parquet")
         print(f"janela {fold}: teste {split.test[0].date()} -> {split.test[-1].date()} | "
               f"estados={data['n_states']} | {time.time() - t0:.0f}s", flush=True)
         (out / "manifest.json").write_text(json.dumps(manifests, indent=1, default=str), encoding="utf-8")
