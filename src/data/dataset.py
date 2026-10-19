@@ -217,18 +217,29 @@ def build_split_dataset(
     state_range: tuple[int, ...] = (2, 3, 4),
     hmm_n_init: int = 10,
     random_state: int | None = None,
+    hmm_observations: pd.DataFrame | None = None,
 ) -> dict:
     """Dataset pronto para a LSTM em uma janela walk-forward.
 
     Retorna arrays de treino/validação/teste, as colunas escolhidas, o número
     de estados do HMM e o desvio-padrão usado para escalar o alvo (para voltar
     à escala original de retorno na hora de calcular VaR/ES).
+
+    hmm_observations permite aplicar, por exemplo, uma defasagem às entradas
+    do HMM sem deslocar o alvo da carteira. Deve ter o mesmo índice e somente
+    informações disponíveis na origem. O padrão preserva o comportamento
+    anterior. O chamador é responsável pela disponibilidade dos dados.
     """
     panel = market_level_panel(features_panel)
     columns, selection_report = select_split_features(panel, split.train, vif_threshold, max_missing)
 
     until = split.test[-1]
-    regimes, n_states = causal_regime_features(portfolio, split.train, until, state_range, hmm_n_init, random_state)
+    observations = portfolio if hmm_observations is None else hmm_observations
+    if not observations.index.equals(portfolio.index):
+        raise ValueError("Observações do HMM e carteira devem usar o mesmo calendário completo.")
+    if not set(HMM_COLUMNS).issubset(observations.columns):
+        raise ValueError("Observações do HMM sem as colunas necessárias.")
+    regimes, n_states = causal_regime_features(observations, split.train, until, state_range, hmm_n_init, random_state)
 
     X = panel.loc[:until, columns]
     scaler = Scaler.fit(X.loc[X.index.intersection(split.train)])

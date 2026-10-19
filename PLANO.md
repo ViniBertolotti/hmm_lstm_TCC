@@ -8,6 +8,56 @@ agro/commodities.
 Cada semana lista entregáveis objetivos (arquivos que devem existir e rodar) para facilitar
 acompanhamento. Marque `[x]` ao concluir.
 
+## Estado verificado e prioridades (19/10/2026)
+
+Esta avaliação qualifica as marcações do cronograma abaixo. Código escrito e
+testes simulados não demonstram validade das séries ou desempenho financeiro.
+
+- **Futuros e rolagens:** a fonte definitiva permanece pendente. A lógica por
+  razão usa preços simultâneos dos contratos e preserva o retorno de mercado;
+  foram verificados casos simulados, sem corrigir os arquivos Yahoo/Bloomberg.
+  O candidato público não tem aprovação final de procedência/licenciamento,
+  OHLCV, calendário ex ante e liquidez. Não remover retornos extremos sem prova.
+  Dois boletins oficiais do USDA confirmaram vencimentos distintos da soja e
+  coincidência pontual do Yahoo com o primeiro contrato listado. Cobertura
+  diária de 2005-2024 e solução para o café continuam sem confirmação. Evidência
+  em `reports/tables/futures_source_audit.json`; não é uma base final corrigida.
+- **Modelos e risco:** módulos mínimos de LSTM, MC Dropout, VaR/ES, calibração
+  de erros e backtests têm verificações sintéticas. O executor separa treino,
+  seleção/early stopping, calibração posterior e teste. Reservar 252 sessões
+  para calibração dentro dos cinco anos de desenvolvimento reduz o treino
+  efetivo; esse protocolo precisa ser explicitado. A cauda empírica a 99% é
+  pequena e não sustenta conclusões fortes com essa amostra. Dispersão do
+  dropout não equivale à distribuição das perdas. Ainda faltam as execuções
+  financeiras e a avaliação da cobertura fora da amostra.
+- **R/MS-GARCH:** adiado pelo usuário até obter liberação do TI. O piloto
+  preparado ainda não foi executado; não declarar o benchmark validado.
+- **Fonte e escopo:** usar alternativas sem custo, preservar a especificação
+  com futuros e avaliar CEPEA separadamente. Mudanças de mercado, vencimentos,
+  features e período exigem justificativa e discussão com o orientador.
+  O ensaio separado CEPEA executou LSTM e HMM-LSTM na primeira janela de teste
+  (29/06 a 28/12/2012), com informações defasadas em um pregão e alvo preservado.
+  Restaram 278 sequências de treino, 129 erros de calibração e 122 previsões de
+  teste. Houve 94 retornos zero da soja nos 123 pregões do bloco. Ambos os
+  modelos tiveram MSE de retorno ligeiramente maior que a referência zero.
+  A disponibilidade de amostras e a cauda de 99% exigem revisão; não houve
+  substituição da versão com futuros nem conclusão sobre H1-H3. Evidência em
+  `reports/tables/cepea_pilot_interpretation.json`.
+  A nova consulta Yahoo reproduziu três datas sem cotações das quatro ações.
+  Para SLCE3, a ausência também está na resposta bruta do provedor. O ofício
+  072/2020-PRE da B3 confirma pregão normal em 20/11/2020; não transformar
+  ausência de preço em feriado nem preencher automaticamente. As outras duas
+  datas seguem sem confirmação primária de calendário nesta auditoria.
+  Evidência em `reports/tables/equity_gap_probe.json`.
+- **Resultados e texto:** notebooks 02/03 precisam ser reexecutados após validar
+  a base final. Experimentos financeiros, comparação dos modelos, discussão
+  H1-H3, revisão ABNT e pôster continuam pendentes.
+  H1-H3 foram conferidas no documento: a interpretação de H3 precisa distinguir
+  ausência de diferença detectada de evidência de não inferioridade. Também é
+  necessário remover a exigência de sustentar uma hipótese como condição de
+  sucesso científico. Auditoria em `reports/tables/hypotheses_audit.json`;
+  documento original preservado.
+
 ## Replanejamento (19/10/2026)
 
 Em 19/10 as Semanas 1-4 estavam prontas (exceto o documento) e as Semanas 5-8 não tinham
