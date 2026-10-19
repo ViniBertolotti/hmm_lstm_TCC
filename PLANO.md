@@ -8,14 +8,31 @@ agro/commodities.
 Cada semana lista entregáveis objetivos (arquivos que devem existir e rodar) para facilitar
 acompanhamento. Marque `[x]` ao concluir.
 
+## Replanejamento (19/10/2026)
+
+Em 19/10 as Semanas 1-4 estavam prontas (exceto o documento) e as Semanas 5-8 não tinham
+começado: cerca de 4 semanas de atraso, sem buffer até 01/12. O cronograma original abaixo
+fica como referência; vale este:
+
+| Período | Entregas |
+|---|---|
+| 19-25/10 | Re-export dos futuros ajustados + rodar 02/03 de novo; dataset walk-forward (`src/data/dataset.py`, feito); instalar R + MSGARCH e fazer um teste; título + Cap. 1 (rev1 feita, aguardando revisão) |
+| 26/10-01/11 | LSTM walk-forward com grid reduzido; MC Dropout → VaR/ES |
+| 02-08/11 | MS-GARCH + backtesting (Kupiec, Christoffersen, Acerbi-Székely, Diebold-Mariano) |
+| 09-15/11 | Resultados H1-H3; SHAP só se sobrar tempo (primeiro corte) |
+| 16-22/11 | Cap. 3 revisado conforme a implementação |
+| 23/11-01/12 | ABNT, revisão final, pôster |
+
 ---
 
 ## Semana 1 — 26/08 a 01/09 — Setup e ajuste do documento
 - [x] Criar/validar ambiente Python (`requirements.txt`) — ambiente R (`MSGARCH`) fica para a Semana 8
 - [x] Confirmar/ajustar lista de 7 ativos agro em `config.yaml`
-- [ ] Atualizar título do TCC para refletir o setor agro/commodities
-- [ ] Reescrever Cap. 1 (problema de pesquisa, objetivos, justificativa) trocando a carteira
-      genérica pela carteira agro — manter H1/H2/H3 e a estrutura de pergunta de pesquisa
+- [~] Atualizar título do TCC para refletir o setor agro/commodities — proposta em
+      `docs/projeto_tcc_agro_rev1.docx` (controle de alterações), falta revisar e validar com o orientador
+- [~] Reescrever Cap. 1 (problema de pesquisa, objetivos, justificativa) trocando a carteira
+      genérica pela carteira agro — rev1 no mesmo arquivo; 3 comentários pendentes (fontes do
+      PIB/exportações do agro, número do câmbio em 2020, mudanças societárias JBS/Marfrig)
 - [x] Copiar o pré-projeto original para `docs/pre_projeto_original.docx`
 
 ## Semana 2 — 02 a 08/09 — Coleta de dados
@@ -71,7 +88,11 @@ acompanhamento. Marque `[x]` ao concluir.
 - [ ] `notebooks/04_lstm_training.ipynb` (parte 1 — arquitetura e grid search)
 
 ## Semana 6 — 30/09 a 06/10 — Treinamento
-- [ ] Split 70/15/15 (hiperparâmetros) + walk-forward (treino 5a / teste 6m, passo 6m)
+- [x] Walk-forward (treino 5a / teste 6m, passo 6m) em `src/data/dataset.py`: 25 janelas
+      (testes de 2012-09 a 2024-12). Em vez do split 70/15/15 global, a validação é o trecho
+      final (15%) de cada janela de treino. Seleção de features, padronização e HMM (inclusive o
+      nº de estados) são ajustados só no treino de cada janela; o regime entra como one-hot do
+      filtro Forward.
 - [ ] Early stopping (paciência 15), seeds fixas, `requirements.txt`/versões documentadas
 - [ ] `notebooks/04_lstm_training.ipynb` (parte 2 — treino final e conjunto de teste lacrado)
 
@@ -143,8 +164,16 @@ acompanhamento. Marque `[x]` ao concluir.
   (Broad Trade-Weighted U.S. Dollar Index) como proxy — metodologicamente equivalente
   na literatura, mas não é o mesmo índice/base. Documentar essa ressalva no Cap. 3
   (Metodologia) quando o documento for revisado.
-- **Rolagem dos futuros — resolvida via genérico contínuo do Bloomberg (ação pendente:
-  exportar os arquivos)**: a heurística de log-retorno > 8% foi removida (frágil —
+- **Rolagem dos futuros — BLOQUEANTE: o export de 19/10 veio sem ajuste.** Os arquivos
+  `futures_bloomberg_*.xlsx` (e `Soja_Cafe_data.xlsx`) são idênticos ao Yahoo bruto em
+  ~100% das datas, e os maiores saltos da soja caem na virada do contrato de agosto
+  (15/08/2022, 17/08/2009, 15/08/2014, 16/09/2013). Ou seja, `S 1 COMB Comdty` puro não
+  aplica ajuste. Re-exportar com o sufixo de roll adjustment do genérico (ex.:
+  `S 1 R:05_0_R Comdty` / `KC1 R:05_0_R Comdty`: rolagem antes do first notice day, ajuste
+  por razão; confirmar a sintaxe no terminal) e salvar como `.xlsx` normal (o de soja está
+  em "Strict Open XML", que o Python não lê). Plano B auditável: exportar também
+  `S 2 COMB` / `KC2 COMB` para calcular os fatores novo/antigo na mesma data via
+  `adjust_ohlc_roll`. Histórico da decisão: a heurística de log-retorno > 8% foi removida (frágil —
   confunde rolagem com um dia de notícia ruim) e a tentativa de reconstruir fatores
   verificados via contratos individuais do Yahoo não é viável — o Yahoo não retém
   histórico de contratos expirados (nem `ZSH25.CBT`, vencido em março/2025, está mais
