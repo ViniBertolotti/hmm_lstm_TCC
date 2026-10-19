@@ -147,6 +147,30 @@ def corwin_schultz_spread(ohlc: pd.DataFrame) -> pd.Series:
     return spread.clip(lower=0).rename("corwin_schultz_spread")
 
 
+def ewma_volatility(return_1d: pd.Series, lam: float = 0.94, warmup: int = 21) -> pd.Series:
+    """Volatilidade diária EWMA (RiskMetrics) prevista para t+1 com retornos até t.
+
+    sigma²(t+1|t) = lam·sigma²(t|t-1) + (1-lam)·r(t)². Começa com a variância
+    média dos `warmup` primeiros retornos (os dias anteriores ficam NaN). Em
+    dias sem retorno a variância apenas se mantém, sem usar informação futura.
+    """
+    if not 0 < lam < 1:
+        raise ValueError("lam deve estar entre 0 e 1.")
+    r = return_1d.to_numpy(dtype=float)
+    out = np.full(len(r), np.nan)
+    seen = np.flatnonzero(np.isfinite(r))
+    if len(seen) < warmup:
+        return pd.Series(out, index=return_1d.index, name="ewma_vol")
+    start = seen[warmup - 1]
+    var = np.mean(r[seen[:warmup]] ** 2)
+    out[start] = np.sqrt(var)
+    for t in range(start + 1, len(r)):
+        if np.isfinite(r[t]):
+            var = lam * var + (1 - lam) * r[t] ** 2
+        out[t] = np.sqrt(var)
+    return pd.Series(out, index=return_1d.index, name="ewma_vol")
+
+
 def rolling_skew_kurtosis(return_1d: pd.Series, windows: tuple[int, ...] = (21, 63)) -> pd.DataFrame:
     """Assimetria e curtose móveis do retorno diário."""
     out = {}

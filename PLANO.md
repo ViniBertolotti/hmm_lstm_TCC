@@ -214,30 +214,19 @@ fica como referência; vale este:
   (Broad Trade-Weighted U.S. Dollar Index) como proxy — metodologicamente equivalente
   na literatura, mas não é o mesmo índice/base. Documentar essa ressalva no Cap. 3
   (Metodologia) quando o documento for revisado.
-- **Rolagem dos futuros — BLOQUEANTE: o export de 19/10 veio sem ajuste.** Os arquivos
-  `futures_bloomberg_*.xlsx` (e `Soja_Cafe_data.xlsx`) são idênticos ao Yahoo bruto em
-  ~100% das datas, e os maiores saltos da soja caem na virada do contrato de agosto
-  (15/08/2022, 17/08/2009, 15/08/2014, 16/09/2013). Ou seja, `S 1 COMB Comdty` puro não
-  aplica ajuste. Re-exportar com o sufixo de roll adjustment do genérico (ex.:
-  `S 1 R:05_0_R Comdty` / `KC1 R:05_0_R Comdty`: rolagem antes do first notice day, ajuste
-  por razão; confirmar a sintaxe no terminal) e salvar como `.xlsx` normal (o de soja está
-  em "Strict Open XML", que o Python não lê). Plano B auditável: exportar também
-  `S 2 COMB` / `KC2 COMB` para calcular os fatores novo/antigo na mesma data via
-  `adjust_ohlc_roll`. Histórico da decisão: a heurística de log-retorno > 8% foi removida (frágil —
-  confunde rolagem com um dia de notícia ruim) e a tentativa de reconstruir fatores
-  verificados via contratos individuais do Yahoo não é viável — o Yahoo não retém
-  histórico de contratos expirados (nem `ZSH25.CBT`, vencido em março/2025, está mais
-  disponível). Solução adotada: `notebooks/02_feature_engineering.ipynb` agora lê
-  `data/raw/futures_bloomberg_soja.xlsx` / `futures_bloomberg_cafe.xlsx` via
-  `src/data/collectors.py::load_bloomberg_futures_adjusted` — genérico do 1º contrato
-  (`S 1 COMB Comdty` / `KC1 COMB Comdty` ou equivalente), OHLCV completo, **ajuste de
-  rolagem por razão/percentual** (não por diferença) aplicado pelo próprio Bloomberg.
-  **Falta exportar os dois arquivos do terminal** (2005-01-01 a 2024-12-31) antes do
-  notebook 02 rodar de novo — sem eles, a célula de carregamento falha. Depois de
-  exportado, documentar no Cap. 3 exatamente qual ticker/campo/método de ajuste foi
-  usado (a metodologia do Bloomberg não é auditável no nosso código, ao contrário do
-  `adjust_futures_roll`/`adjust_ohlc_roll`, que continuam disponíveis para o dia em
-  que houver fatores verificados por contrato).
+- **Rolagem dos futuros — resolvida com a base pública do pysystemtrade (19/10).** O Yahoo e
+  o genérico `S 1 COMB` / `KC1 COMB` do Bloomberg não são ajustados (idênticos em ~100% das
+  datas). `scripts/build_public_futures.py` baixa os CSVs "multiple prices" do pysystemtrade
+  (commit a62269d2, conferido por SHA256), que trazem o contrato em uso e o seguinte no mesmo
+  dia, e reconstrói o índice por razão novo/antigo (`src/data/public_futures_chain.py`).
+  Soja: contrato de novembro, 19 rolagens; café: mar/mai/jul/set/dez, 85 rolagens. Validação:
+  a queda de -23% da soja em 15/09/2008 no Yahoo vira -2,4%; no café os maiores movimentos
+  (seca de 2014, geadas de jul/2021) são reais e permanecem. Ressalvas para o Cap. 3:
+  (1) só há fechamento — Garman-Klass, Corwin-Schultz e volume ficam de fora para soja e café;
+  (2) a base termina em 28/03/2024, então a amostra passa a ir de 29/06/2007 a 28/03/2024;
+  (3) o autor parou de atualizar a base citando dúvidas sobre licenciamento dos dados
+  redistribuídos — uso acadêmico com citação, vale comentar com o orientador; (4) o horário
+  23:00 da fonte é nocional. Os exports do Bloomberg ficam em `data/raw/` só como registro.
 - **Cap. 1 do `.docx` (pivô agro)**: `docs/pre_projeto_original.docx` ainda está na
   versão genérica ("carteiras brasileiras"), sem menção a agro/commodities/tickers.
   Reescrita adiada de propósito para depois da coleta de dados (decisão desta rodada).

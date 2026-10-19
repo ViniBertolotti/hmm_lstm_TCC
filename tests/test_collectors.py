@@ -2,29 +2,22 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data.collectors import adjust_futures_roll, adjust_ohlc_roll, load_bloomberg_futures_adjusted
+from src.data.collectors import adjust_futures_roll, adjust_ohlc_roll, load_public_futures_close
 
 
-def test_load_bloomberg_futures_adjusted_reads_ohlcv_indexed_by_date(tmp_path):
-    dates = pd.bdate_range("2020-01-02", periods=3)
-    df = pd.DataFrame(
-        {
-            "date": dates,
-            "Open": [100.0, 101.0, 99.0],
-            "High": [102.0, 103.0, 100.0],
-            "Low": [98.0, 100.0, 97.0],
-            "Close": [101.0, 100.0, 98.0],
-            "Volume": [1000, 1200, 900],
-        }
-    )
-    path = tmp_path / "futures_bloomberg_soja.xlsx"
-    df.to_excel(path, index=False)
+def test_load_public_futures_close_returns_close_column_without_gaps(tmp_path):
+    dates = pd.bdate_range("2020-01-02", periods=4)
+    daily = pd.DataFrame({"price_index": [100.0, np.nan, 101.0, 99.5],
+                          "raw_price": [500.0, np.nan, 505.0, 497.5],
+                          "price_contract": ["20201100"] * 4}, index=dates)
+    path = tmp_path / "SOYBEAN_daily.parquet"
+    daily.to_parquet(path)
 
-    result = load_bloomberg_futures_adjusted(path)
+    result = load_public_futures_close(path)
 
-    assert list(result.columns) == ["Open", "High", "Low", "Close", "Volume"]
-    assert list(result.index) == list(dates)
-    assert result.loc[dates[1], "Close"] == 100.0
+    assert list(result.columns) == ["Close"]
+    assert list(result.index) == [dates[0], dates[2], dates[3]]  # ausência fica para align_and_fill_ohlc
+    assert result.loc[dates[3], "Close"] == 99.5
 
 
 def test_large_market_loss_is_preserved_without_roll_evidence():

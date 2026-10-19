@@ -109,23 +109,16 @@ def adjust_ohlc_roll(ohlc: pd.DataFrame, *, roll_factors: pd.Series | None = Non
     return adjusted
 
 
-def load_bloomberg_futures_adjusted(path: str | os.PathLike) -> pd.DataFrame:
-    """Lê um genérico contínuo de futuro (já ajustado por rolagem) exportado do Bloomberg.
+def load_public_futures_close(path: str | os.PathLike) -> pd.DataFrame:
+    """Índice de preço do futuro já ajustado por rolagem (só fechamento).
 
-    Fonte: terminal Bloomberg, genérico do 1º contrato (ex. "S 1 COMB Comdty"
-    para soja, "KC1 COMB Comdty" para café), campos PX_OPEN/PX_HIGH/PX_LOW/
-    PX_LAST/PX_VOLUME, ajuste de rolagem por RAZÃO (não por diferença — evita
-    preço negativo e preserva log-retorno, mesmo raciocínio de
-    `adjust_futures_roll`). Export manual (`.xlsx` com colunas
-    `date`/`Open`/`High`/`Low`/`Close`/`Volume`), não versionado no git (ver
-    `.gitignore`/`data/raw/`) e sem atualização automática.
-
-    Ao contrário de `adjust_futures_roll`/`adjust_ohlc_roll` (que exigem
-    fatores verificados que não temos para ZS=F/KC=F), este arquivo já vem
-    ajustado pelo Bloomberg — não aplicar ajuste de rolagem de novo em cima.
+    Gerado por `scripts/build_public_futures.py` a partir da base pública do
+    pysystemtrade. Volta como DataFrame com a coluna `Close` para entrar no
+    mesmo fluxo de alinhamento dos demais ativos; Open/High/Low/Volume não
+    existem nesta fonte.
     """
-    df = pd.read_excel(path)
-    return df.set_index("date")[["Open", "High", "Low", "Close", "Volume"]].sort_index()
+    daily = pd.read_parquet(path)
+    return daily[["price_index"]].rename(columns={"price_index": "Close"}).dropna().sort_index()
 
 
 def collect_bcb_sgs(start: str, end: str) -> pd.DataFrame:

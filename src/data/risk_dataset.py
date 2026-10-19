@@ -67,6 +67,8 @@ def make_risk_walk_forward_splits(sessions, *, development_years=5, test_months=
         test_months=test_months, step_months=step_months, validation_fraction=validation_fraction)
     result = []
     for window in base:
+        if len(window.test) < 2:  # janela final truncada pelo fim da amostra: sem teste avaliável
+            continue
         development = window.train.append(window.validation)
         remaining = development[:-calibration_sessions]
         n_validation = max(2, round(len(remaining)*validation_fraction))

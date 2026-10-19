@@ -50,10 +50,32 @@ class ResidualCalibrator:
     fitted_as_of: pd.Timestamp
     calibration_first_origin: pd.Timestamp
     calibration_last_realization: pd.Timestamp
+    regimes: tuple[int, ...] | None = None
+    min_regime_pool: int = 100
+
+    def _pool(self, regime):
+        """Erros do regime atual quando há amostra suficiente; senão, todos.
+
+        Com um ano de calibração e quatro regimes, o regime de estresse pode ter
+        poucas dezenas de erros — pouco para estimar uma cauda de 1%. Abaixo de
+        `min_regime_pool` o cálculo usa todos os erros, e a escolha fica registrada.
+        """
+        residuals = np.asarray(self.residuals)
+        if self.regimes is None or regime is None:
+            return residuals, "all"
+        mask = np.asarray(self.regimes) == int(regime)
+        if mask.sum() >= self.min_regime_pool:
+            return residuals[mask], f"regime_{int(regime)}"
+        return residuals, "all_fallback"
 
     def forecast(self, prediction, *, origin, target, model_id, scale=1.0,
-                 confidence_levels=(.95, .99), horizon=1):
-        """Risco de uma sessão, condicionado ao modelo congelado da calibração."""
+                 confidence_levels=(.95, .99), horizon=1, regime=None):
+        """Risco de uma sessão, condicionado ao modelo congelado da calibração.
+
+        Cenários: prediction + scale·z, com z vindo dos erros padronizados da
+        calibração (simulação histórica filtrada). `scale` e `regime` precisam
+        ser conhecidos na origem.
+        """
         if isinstance(horizon, bool) or not isinstance(horizon, Integral) or horizon != 1:
             raise ValueError("Somente horizonte de uma sessão foi implementado.")
         origin, target = _timestamp(origin), _timestamp(target)
@@ -69,10 +91,12 @@ class ResidualCalibrator:
         levels = tuple(confidence_levels)
         if not levels or len(set(levels)) != len(levels):
             raise ValueError("Informe níveis de confiança únicos e não vazios.")
-        scenarios = prediction + scale * np.asarray(self.residuals)
+        pool, pool_name = self._pool(regime)
+        scenarios = prediction + scale * pool
         losses = losses_from_log_returns(scenarios)
         rows = [empirical_var_es(losses, level) for level in sorted(levels)]
         result = pd.DataFrame(rows).set_index("confidence")
+        result["residual_pool"] = pool_name
         result["origin"] = origin
         result["target"] = target
         result["loss_definition"] = "negative_simple_return"
@@ -81,10 +105,11 @@ class ResidualCalibrator:
 
 
 def fit_residual_calibrator(calibration, *, sessions, model_id,
-                            model_fit_end, model_selection_end, as_of):
+                            model_fit_end, model_selection_end, as_of, min_regime_pool=100):
     """Exige bloco separado de treino e de early stopping/seleção.
 
-    Colunas: origin, realized_at, prediction, return_1d e scale opcional.
+    Colunas: origin, realized_at, prediction, return_1d; opcionais: scale
+    (volatilidade conhecida na origem) e regime (estado do HMM na origem).
     Metadados temporais são verificados, mas a função não autentica o histórico
     de treinamento nem comprova que previsões/escalas foram geradas causalmente.
     Essa evidência deve vir do executor do experimento e de seus checkpoints.
@@ -114,5 +139,11 @@ def fit_residual_calibrator(calibration, *, sessions, model_id,
     if not np.isfinite(numeric).all() or not np.isfinite(scales).all() or (scales <= 0).any():
         raise ValueError("Preços previstos/observados e escalas devem ser finitos; escala positiva.")
     residuals = (numeric[:, 1] - numeric[:, 0]) / scales
+    regimes = None
+    if "regime" in frame:
+        if frame.regime.isna().any():
+            raise ValueError("Regime ausente em origem de calibração.")
+        regimes = tuple(int(r) for r in frame.regime)
     return ResidualCalibrator(tuple(map(float, residuals)), tuple(calendar), model_id,
-                              fit_end, selection_end, available, origins.min(), realized.max())
+                              fit_end, selection_end, available, origins.min(), realized.max(),
+                              regimes, min_regime_pool)
