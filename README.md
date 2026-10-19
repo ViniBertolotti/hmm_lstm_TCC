@@ -68,6 +68,14 @@ para `reports/archive/`; `reports/tables/rebuild_manifest.json` registra status,
 hashes dos dados e o caráter in-sample do experimento. `requirements-lock.txt`
 registra as versões do ambiente que executou a reconstrução (Windows/Python 3.13).
 
+O manifesto registra a célula atual e os notebooks concluídos. A existência dos
+parquets não prova término: confirme `status: complete`. Falhas e interrupções
+capturáveis registram `failed`; encerramento forçado do processo pode deixar
+`running`, com o horário da última atualização. Nesse caso, confira o processo
+antes de repetir a execução. O bootstrap mantém 50 reamostragens e usa cache de
+emissões por iteração para evitar recalcular as mesmas densidades por bloco;
+um teste compara o ajuste com a implementação original do `hmmlearn`.
+
 O preenchimento usa somente os primeiros três pregões de cada ausência, com
 preço passado e volume zero nas barras preenchidas. Volume de FX é excluído
 explicitamente. Demais ausências são preservadas e reportadas em

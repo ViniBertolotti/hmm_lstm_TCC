@@ -16,6 +16,32 @@ import pandas as pd
 from hmmlearn.hmm import GaussianHMM
 from sklearn.metrics import adjusted_rand_score
 from scipy.special import logsumexp as _logsumexp
+from threadpoolctl import threadpool_limits
+
+
+class _BatchedEmissionHMM(GaussianHMM):
+    """Calcula emissões uma vez por E-step, mantendo os blocos independentes.
+
+    hmmlearn 0.3.x solicita uma fatia por sequência em _do_estep. Reutilizar
+    a matriz evita refatorar a mesma covariância para cada bloco bootstrap.
+    O cache é descartado antes do M-step; score/filter usam o caminho original.
+    """
+
+    def _do_estep(self, X, lengths):
+        self._emission_cache = super()._compute_log_likelihood(X)
+        self._emission_offset = 0
+        try:
+            return super()._do_estep(X, lengths)
+        finally:
+            del self._emission_cache
+            del self._emission_offset
+
+    def _compute_log_likelihood(self, X):
+        if not hasattr(self, '_emission_cache'):
+            return super()._compute_log_likelihood(X)
+        start = self._emission_offset
+        self._emission_offset += len(X)
+        return self._emission_cache[start:self._emission_offset]
 
 
 def _sequence_lengths(n_obs: int, lengths=None) -> list[int]:
@@ -33,6 +59,7 @@ def _effectively_converged(model: GaussianHMM) -> bool:
     return 0 <= gain < model.tol
 
 
+@threadpool_limits.wrap(limits=1, user_api="blas")
 def fit_gaussian_hmm(
     observations: np.ndarray,
     n_states: int,
@@ -56,7 +83,7 @@ def fit_gaussian_hmm(
     best_model, best_score = None, -np.inf
 
     for _ in range(n_init):
-        model = GaussianHMM(
+        model = _BatchedEmissionHMM(
             n_components=n_states,
             covariance_type="full",
             n_iter=n_iter,

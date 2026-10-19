@@ -36,28 +36,34 @@ def main():
             manifest['inputs_sha256'][path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
     out = ROOT / 'reports/tables/rebuild_manifest.json'
     out.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
-    environment = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'], text=True)
-    (ROOT / 'requirements-lock.txt').write_text(environment, encoding='utf-8')
     try:
+        environment = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'], text=True)
+        (ROOT / 'requirements-lock.txt').write_text(environment, encoding='utf-8')
+        manifest['completed_notebooks'] = []
         for name in ('02_feature_engineering', '03_hmm_regimes'):
             path = ROOT / 'notebooks' / (name + '.ipynb')
             nb = nbformat.read(path, as_version=4)
             client = NotebookClient(nb, timeout=3600, resources={'metadata': {'path': str(ROOT / 'notebooks')}})
             def progress(cell, cell_index, **kwargs):
                 if cell.cell_type == 'code':
+                    manifest.update(current_notebook=name, current_cell=cell_index,
+                                    updated_utc=datetime.now(timezone.utc).isoformat())
+                    out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
                     print(f'{name}: célula {cell_index}', flush=True)
             client.on_cell_start = progress
             print(f'Executando {name}', flush=True)
             try:
                 client.execute()
+                manifest['completed_notebooks'].append(name)
             finally:
                 nbformat.write(nb, path)
-    except Exception as exc:
+    except BaseException as exc:
         manifest.update(status='failed', error=str(exc))
         raise
     else:
         manifest.update(status='complete', finished_utc=datetime.now(timezone.utc).isoformat())
     finally:
+        manifest['finished_utc'] = datetime.now(timezone.utc).isoformat()
         out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
 
 

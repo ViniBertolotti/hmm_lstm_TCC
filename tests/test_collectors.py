@@ -2,7 +2,29 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data.collectors import adjust_futures_roll, adjust_ohlc_roll
+from src.data.collectors import adjust_futures_roll, adjust_ohlc_roll, load_bloomberg_futures_adjusted
+
+
+def test_load_bloomberg_futures_adjusted_reads_ohlcv_indexed_by_date(tmp_path):
+    dates = pd.bdate_range("2020-01-02", periods=3)
+    df = pd.DataFrame(
+        {
+            "date": dates,
+            "Open": [100.0, 101.0, 99.0],
+            "High": [102.0, 103.0, 100.0],
+            "Low": [98.0, 100.0, 97.0],
+            "Close": [101.0, 100.0, 98.0],
+            "Volume": [1000, 1200, 900],
+        }
+    )
+    path = tmp_path / "futures_bloomberg_soja.xlsx"
+    df.to_excel(path, index=False)
+
+    result = load_bloomberg_futures_adjusted(path)
+
+    assert list(result.columns) == ["Open", "High", "Low", "Close", "Volume"]
+    assert list(result.index) == list(dates)
+    assert result.loc[dates[1], "Close"] == 100.0
 
 
 def test_large_market_loss_is_preserved_without_roll_evidence():

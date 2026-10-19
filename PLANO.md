@@ -143,12 +143,22 @@ acompanhamento. Marque `[x]` ao concluir.
   (Broad Trade-Weighted U.S. Dollar Index) como proxy — metodologicamente equivalente
   na literatura, mas não é o mesmo índice/base. Documentar essa ressalva no Cap. 3
   (Metodologia) quando o documento for revisado.
-- **Rolagem dos futuros — removida a heurística de log-retorno > 8%**:
-  o notebook 02 usa `futures_raw_yahoo.parquet`. Ajustes exigem fatores explícitos
-  (novo/antigo cotados na mesma data). Falta obter metadados de contratos e validar
-  os fatores; a série bruta pode conter descontinuidades de rolagem, portanto os
-  resultados continuam exploratórios. O antigo `futures_adjusted_yahoo.parquet`
-  não é mais consumido pelo notebook 02.
+- **Rolagem dos futuros — resolvida via genérico contínuo do Bloomberg (ação pendente:
+  exportar os arquivos)**: a heurística de log-retorno > 8% foi removida (frágil —
+  confunde rolagem com um dia de notícia ruim) e a tentativa de reconstruir fatores
+  verificados via contratos individuais do Yahoo não é viável — o Yahoo não retém
+  histórico de contratos expirados (nem `ZSH25.CBT`, vencido em março/2025, está mais
+  disponível). Solução adotada: `notebooks/02_feature_engineering.ipynb` agora lê
+  `data/raw/futures_bloomberg_soja.xlsx` / `futures_bloomberg_cafe.xlsx` via
+  `src/data/collectors.py::load_bloomberg_futures_adjusted` — genérico do 1º contrato
+  (`S 1 COMB Comdty` / `KC1 COMB Comdty` ou equivalente), OHLCV completo, **ajuste de
+  rolagem por razão/percentual** (não por diferença) aplicado pelo próprio Bloomberg.
+  **Falta exportar os dois arquivos do terminal** (2005-01-01 a 2024-12-31) antes do
+  notebook 02 rodar de novo — sem eles, a célula de carregamento falha. Depois de
+  exportado, documentar no Cap. 3 exatamente qual ticker/campo/método de ajuste foi
+  usado (a metodologia do Bloomberg não é auditável no nosso código, ao contrário do
+  `adjust_futures_roll`/`adjust_ohlc_roll`, que continuam disponíveis para o dia em
+  que houver fatores verificados por contrato).
 - **Cap. 1 do `.docx` (pivô agro)**: `docs/pre_projeto_original.docx` ainda está na
   versão genérica ("carteiras brasileiras"), sem menção a agro/commodities/tickers.
   Reescrita adiada de propósito para depois da coleta de dados (decisão desta rodada).

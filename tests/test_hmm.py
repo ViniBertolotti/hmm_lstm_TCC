@@ -9,7 +9,22 @@ from src.models.hmm import (
     select_n_states,
     viterbi_decode,
     _effectively_converged,
+    _BatchedEmissionHMM,
 )
+
+
+def test_batched_emissions_match_hmmlearn_across_independent_sequences():
+    from hmmlearn.hmm import GaussianHMM
+    obs, _ = _two_regime_synthetic(n=120)
+    lengths = [21, 21, 21, 21, 21, 15]
+    args = dict(n_components=2, covariance_type='full', n_iter=15, random_state=42)
+    original = GaussianHMM(**args).fit(obs, lengths=lengths)
+    batched = _BatchedEmissionHMM(**args).fit(obs, lengths=lengths)
+    np.testing.assert_allclose(batched.means_, original.means_, rtol=1e-9, atol=1e-11)
+    np.testing.assert_allclose(batched.covars_, original.covars_, rtol=1e-9, atol=1e-11)
+    np.testing.assert_allclose(batched.transmat_, original.transmat_, rtol=1e-9, atol=1e-11)
+    assert batched.score(obs, lengths) == pytest.approx(original.score(obs, lengths), rel=1e-10)
+    assert not hasattr(batched, '_emission_cache')
 
 
 def test_iteration_limit_is_not_convergence():

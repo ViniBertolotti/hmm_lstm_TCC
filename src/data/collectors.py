@@ -109,6 +109,25 @@ def adjust_ohlc_roll(ohlc: pd.DataFrame, *, roll_factors: pd.Series | None = Non
     return adjusted
 
 
+def load_bloomberg_futures_adjusted(path: str | os.PathLike) -> pd.DataFrame:
+    """Lê um genérico contínuo de futuro (já ajustado por rolagem) exportado do Bloomberg.
+
+    Fonte: terminal Bloomberg, genérico do 1º contrato (ex. "S 1 COMB Comdty"
+    para soja, "KC1 COMB Comdty" para café), campos PX_OPEN/PX_HIGH/PX_LOW/
+    PX_LAST/PX_VOLUME, ajuste de rolagem por RAZÃO (não por diferença — evita
+    preço negativo e preserva log-retorno, mesmo raciocínio de
+    `adjust_futures_roll`). Export manual (`.xlsx` com colunas
+    `date`/`Open`/`High`/`Low`/`Close`/`Volume`), não versionado no git (ver
+    `.gitignore`/`data/raw/`) e sem atualização automática.
+
+    Ao contrário de `adjust_futures_roll`/`adjust_ohlc_roll` (que exigem
+    fatores verificados que não temos para ZS=F/KC=F), este arquivo já vem
+    ajustado pelo Bloomberg — não aplicar ajuste de rolagem de novo em cima.
+    """
+    df = pd.read_excel(path)
+    return df.set_index("date")[["Open", "High", "Low", "Close", "Volume"]].sort_index()
+
+
 def collect_bcb_sgs(start: str, end: str) -> pd.DataFrame:
     """Baixa Selic, IPCA e IBC-Br do SGS/BCB (via pacote `python-bcb`).
 

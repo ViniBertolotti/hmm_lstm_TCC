@@ -3,6 +3,7 @@ pyarrow
 numpy
 scipy
 scikit-learn
+threadpoolctl
 statsmodels
 hmmlearn
 torch
