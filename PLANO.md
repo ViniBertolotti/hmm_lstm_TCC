@@ -301,6 +301,15 @@ fica como referência; vale este:
 - **Resultados HMM**: números anteriores à correção de dados estão arquivados em
   `reports/archive/`. Consultar CSVs regenerados e `rebuild_manifest.json`; não
   reutilizar os antigos 98%/75% como resultados corrigidos.
+  **Rodada com futuros ajustados (19/10, in-sample, 2007-06 a 2024-03):** BIC e AIC escolhem
+  4 estados; o bootstrap confirma 4 estados em 98% das reamostragens, mas a sequência de
+  regimes é só moderadamente estável (concordância ~69%, ARI ~0,47). O estado de maior
+  volatilidade (127 dias) cobre 24/11/2008-13/02/2009 e 09/03/2020-19/06/2020 e tem o
+  **maior** retorno médio (+0,19%/dia). Não é artefato de rolagem: o HMM usa vol realizada
+  olhando para trás, então o regime inclui a recuperação pós-crise (mede turbulência, não
+  direção), e a carteira em reais tem hedge natural — dólar e commodities convertidas
+  sobem nesses episódios, e SLC/JBS ganharam ~0,3%/dia. Ponto para a discussão: na
+  carteira do agro, "estresse" não equivale a perda.
 - **Bootstrap**: blocos não atravessam lacunas e são sequências independentes no fit.
   Compara os modelos na cronologia original; concordância direta usa somente o
   mesmo número de estados, ARI inclui todos os sucessos. Falhas são contadas.
