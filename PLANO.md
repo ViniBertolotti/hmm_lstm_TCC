@@ -81,8 +81,8 @@ Tabelas em `reports/tables/walk_forward/`.
   p-valor (trajetórias sob H0 ainda não geradas).
 - **H3** rejeitada a 95%: nos regimes calmos a HMM-LSTM tem escore quantílico pior que a LSTM
   e que a referência (Diebold-Mariano p≈0,006); a 99%, sem diferença detectável.
-- Leitura provável: a LSTM não prevê o retorno diário melhor que zero (MSE maior que a média
-  zero em quase todas as janelas), então a média prevista só acrescenta ruído ao VaR.
+- Leitura provável: a LSTM não prevê o retorno diário melhor que zero (MSE maior que o da média
+  zero em 36 dos 46 ajustes, somando LSTM e HMM-LSTM), então a média prevista só acrescenta ruído ao VaR.
 - **Não ajustar o modelo olhando para o teste** para fazer as hipóteses passarem: invalida a
   conclusão. Qualquer variação (sem cauda por regime, outro mínimo, LSTM prevendo
   volatilidade em vez de média) entra como análise de sensibilidade declarada como tal.
