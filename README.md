@@ -35,10 +35,12 @@ diário: converte log-retornos em retornos simples, agrega e reaplica `log1p`.
 Se faltar qualquer componente, o retorno agregado fica ausente. Não representa
 o P&L de contratos futuros com margem, colateral e custos de rolagem.
 
-Os futuros são usados sem remoção automática de saltos: a identificação de
-contratos e os fatores de rolagem ainda precisam ser validados. `adjust_ohlc_roll`
-só ajusta preços quando recebe fatores explícitos `novo/antigo` da mesma data.
-Os resultados permanecem exploratórios até essa validação.
+Soja (contrato de novembro) e café (Mar/Mai/Jul/Set/Dez) vêm da série pública de
+preços múltiplos do pysystemtrade, com rolagem por razão novo/antigo nos preços da mesma
+data (`scripts/build_public_futures.py`). Saltos não são removidos. A fonte só tem
+fechamento, e por isso Garman–Klass, Corwin–Schultz e volume ficam de fora para os futuros.
+A base termina em 28/03/2024, fim da série do café. O autor deixou de atualizá-la citando
+licenciamento dos dados; o uso aqui é acadêmico, com citação.
 
 ## Estrutura do repositório
 
@@ -58,33 +60,30 @@ hmm_lstm_agro/
 ## Como reproduzir
 
 1. `python -m venv .venv && .venv\Scripts\activate` (Windows) e `pip install -r requirements.txt`
-2. Instalar R + pacote `MSGARCH` (ver `r/msgarch_benchmark.R`) para o benchmark econométrico
-3. Ajustar `config.yaml` se necessário (ativos, janela de datas, hiperparâmetros)
-4. Executar os notebooks implementados em `notebooks/` (01 → 03).
+   (`requirements-lock.txt` tem as versões exatas usadas).
+2. Instalar R ≥ 4.6 e os pacotes `MSGARCH`, `arrow` e `jsonlite`; as versões usadas ficam
+   em `reports/tables/msgarch/versions.txt`.
+3. Dados: `data/raw/` não é versionado. Os futuros de soja e café vêm da reconstrução
+   pública com rolagem (`scripts/build_public_futures.py`, arquivos conferidos por SHA256).
+4. Rodar, da raiz do projeto:
 
-Com os dados locais já disponíveis, execute `.venv\Scripts\python scripts/rebuild_local.py`
-na raiz do projeto para reexecutar 02/03. Os artefatos anteriores são copiados
-para `reports/archive/`; `reports/tables/rebuild_manifest.json` registra status,
-hashes dos dados e o caráter in-sample do experimento. `requirements-lock.txt`
-registra as versões do ambiente que executou a reconstrução (Windows/Python 3.13).
+| etapa | comando | tempo aprox. |
+|---|---|---|
+| dados e features | notebooks 01 → 03 (ou `scripts/rebuild_local.py` para 02/03) | minutos |
+| LSTM e HMM-LSTM no walk-forward | `python scripts/run_walk_forward.py` | ~30 min |
+| MS-GARCH | `python scripts/msgarch_inputs.py`, `Rscript r/msgarch_benchmark.R`, `python scripts/msgarch_forecasts.py` | ~5 min |
+| backtests | `python scripts/evaluate_walk_forward.py` | ~2 min |
+| robustez ativo a ativo | as mesmas etapas com `--target-asset ATIVO` (ver `scripts/summarize_univariate.py`) | ~1 h em paralelo |
+| tabelas finais | `python scripts/build_final_tables.py` → `reports/tables/final/` | segundos |
+| análises e figuras | notebooks 04 → 08 → `reports/figures/` | ~15 min |
 
-O manifesto registra a célula atual e os notebooks concluídos. A existência dos
-parquets não prova término: confirme `status: complete`. Falhas e interrupções
-capturáveis registram `failed`; encerramento forçado do processo pode deixar
-`running`, com o horário da última atualização. Nesse caso, confira o processo
-antes de repetir a execução. O bootstrap mantém 50 reamostragens e usa cache de
-emissões por iteração para evitar recalcular as mesmas densidades por bloco;
-um teste compara o ajuste com a implementação original do `hmmlearn`.
+O treino é determinístico em CPU (semente fixa): repetir `run_walk_forward.py` reproduz as
+previsões bit a bit. O teste é usado uma única vez, sem ajuste posterior de hiperparâmetros.
 
-O preenchimento usa somente os primeiros três pregões de cada ausência, com
-preço passado e volume zero nas barras preenchidas. Volume de FX é excluído
-explicitamente. Demais ausências são preservadas e reportadas em
-`feature_missingness.csv`; a seleção/imputação para a LSTM deve ser aprendida
-dentro de cada janela de treino, ainda não implementada.
-
-O HMM trata trechos separados por ausências como sequências independentes.
-O Forward não usa observações futuras, mas seus parâmetros atuais são ajustados
-in-sample; o arquivo de regimes não deve ser usado como feature fora da amostra.
+O preenchimento usa somente os primeiros três pregões de cada ausência. Seleção de variáveis,
+padronização e HMM são ajustados dentro do treino de cada janela, e o regime entra na rede pelo
+filtro Forward. O arquivo `hmm_regimes_insample.parquet` (notebook 03) é só descritivo e não
+deve ser usado como entrada fora da amostra.
 
 ## Status e plano de trabalho
 
