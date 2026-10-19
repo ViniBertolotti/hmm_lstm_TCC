@@ -240,7 +240,8 @@ fica como referência; vale este:
       lookback de 42 dias, saída densa, loss MSE, otimizador Adam
 - [ ] (não executado; configuração fixa declarada) Grid search restrito: lookback ∈ {21,42,63}, dropout ∈ {0.2,0.3,0.4},
       batch ∈ {32,64}, lr ∈ {0.001,0.0005}
-- [ ] `notebooks/04_lstm_training.ipynb` (parte 1 — arquitetura e grid search)
+- [x] `notebooks/04_lstm_training.ipynb`: desenho das janelas, curvas de aprendizado (janela 14),
+      épocas escolhidas e MSE relativo à média zero nas 23 janelas
 
 ## Semana 6 — 30/09 a 06/10 — Treinamento
 - [x] Walk-forward (treino 5a / teste 6m, passo 6m) em `src/data/dataset.py`: 25 janelas
@@ -249,13 +250,14 @@ fica como referência; vale este:
       nº de estados) são ajustados só no treino de cada janela; o regime entra como one-hot do
       filtro Forward.
 - [x] Early stopping (paciência 15), seeds fixas, `requirements.txt`/versões documentadas
-- [ ] `notebooks/04_lstm_training.ipynb` (parte 2 — treino final e conjunto de teste lacrado)
+- [x] Treino final no walk-forward (`scripts/run_walk_forward.py`), coberto pelo notebook 04
 
 ## Semana 7 — 07 a 13/10 — MC Dropout e VaR/ES
 - [x] `src/models/mc_dropout.py`: 1000 passagens com dropout ativo por instante de previsão
 - [x] `src/risk/var_es.py`: VaR (quantil empírico) e ES (média das perdas abaixo do quantil),
       condicionais ao regime e não condicionais (95%/99%)
-- [ ] `notebooks/05_mc_dropout_var_es.ipynb`
+- [x] `notebooks/05_mc_dropout_var_es.ipynb`: EWMA, erros padronizados, MC Dropout como diagnóstico,
+      média prevista no estresse, cenários de 12/03/2020, VaR 99% no tempo
 
 ## Semana 8 — 14 a 20/10 — Benchmark MS-GARCH (R)
 - [x] `r/msgarch_benchmark.R`: MS-GARCH(1,1) Student-t, 2–3 estados, seleção por BIC (19/10;
@@ -273,11 +275,13 @@ fica como referência; vale este:
       Christoffersen-Pelletier (2004, duração), Acerbi-Székely (2014, ES)
 - [x] Funções de perda: escore quantílico (VaR) e FZ0 de Fissler-Ziegel (VaR+ES conjunto)
 - [x] Teste Diebold-Mariano (HAC Bartlett, 5 defasagens; HLN disponível)
-- [ ] `notebooks/06_backtesting.ipynb`
+- [x] `notebooks/06_backtesting.ipynb`: MS-GARCH, cobertura, ES, DM (quantílico e FZ0), por ano,
+      sensibilidade paramétrica e quadro das hipóteses H1-H3
 
 ## Semana 10 — 28/10 a 03/11 — Interpretabilidade e consolidação
-- [ ] `src/interpretability/shap_analysis.py`: DeepSHAP sobre a LSTM treinada, ranking por regime
-- [ ] `notebooks/07_shap_interpretability.ipynb`
+- [x] SHAP (GradientExplainer) na HMM-LSTM das janelas 14 e 20, dentro do notebook 07 (sem módulo
+      separado): regime pesa 1-4%; entradas influentes instáveis entre janelas
+- [x] `notebooks/07_shap_interpretability.ipynb`
 - [ ] Consolidar tabelas/figuras finais em `reports/tables` e `reports/figures`
 
 ## Semana 11 — 04 a 10/11 — Resultados e hipóteses
