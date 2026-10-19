@@ -1,0 +1,17 @@
+NOTAS PARA INTEGRAR A REVISÃO DE LITERATURA
+
+A versão principal está em docs/revisao_literatura_agro_rev2.docx. Trata-se de um capítulo separado, com 11 seções, 34 referências e cinco equações editáveis. O pré-projeto original e a revisão anterior não foram alterados.
+
+O capítulo desenvolve uma revisão narrativa crítica. A versão anterior declarava bibliometria e consultas a bases sem apresentar registros correspondentes. A nova redação não afirma buscas autenticadas em Scopus/Web of Science, contagens bibliométricas ou revisão sistemática exaustiva. O alcance da consulta de cada fonte — resumo, metadados ou trechos — está registrado em docs/revisao_literatura_fontes.json.
+
+Foram mantidos os fundamentos clássicos pertinentes e acrescentados antecedentes diretos de HMM/LSTM e risco, como De Mel (2026) e Arimond et al. (2026). A existência desses estudos exige rever afirmações amplas de ineditismo na introdução. A contribuição pode ser definida pela exposição agro brasileira, pela comparação compatível e pelo rigor da avaliação.
+
+As entradas de Rabbani e Sarkar da revisão anterior não foram mantidas como apoio central: a lista final e os fichamentos apresentavam informações diferentes sobre títulos/autores/veículos. Isso não implica que os trabalhos não existam; exige conferir a correspondência antes de reutilizá-los. A fundamentação da nova versão não depende dessas entradas.
+
+O VaR foi definido como quantil, e não como maior perda possível. A discussão separa retorno, volatilidade e risco de cauda; distingue incerteza do modelo de variabilidade dos retornos; e explica os limites de usar apenas Monte Carlo Dropout para VaR/ES. Não rejeitar um teste não foi tratado como prova de equivalência ou não inferioridade.
+
+A introdução e a metodologia do DOCX anterior continuam precisando de harmonização. Em particular, a seção 3.1 ainda descreve uma carteira genérica com PETR4, VALE3, ITUB4 e ABEV3; a seção 3.2 menciona interpolação linear; e a passagem direta de saídas de dropout para a distribuição de perdas precisa ser revista. Nenhum desses capítulos foi substituído nesta entrega focada na literatura.
+
+Ao integrar, conferir a numeração do Quadro 1, remissões, sumário e a correspondência entre hipóteses, objetivos e procedimentos. As referências deste capítulo precisam ser combinadas à lista geral sem duplicações. A formatação adotada é A4, Times New Roman 12, espaçamento 1,5 no corpo e margens de 3 cm à esquerda/no topo e 2 cm à direita/na base; a normalização final deve seguir o manual vigente do curso.
+
+A conferência visual utilizou uma prévia alternativa do próprio DOCX, pois LibreOffice e a automação nativa do Word não estavam disponíveis neste ambiente. Vinte páginas da prévia foram inspecionadas e a integridade dos 157 parágrafos de texto foi comparada ao arquivo. A paginação exata no Word pode variar, principalmente depois de integrar o capítulo ao restante do TCC.

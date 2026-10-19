@@ -2,7 +2,7 @@
 # Implementação: pacote MSGARCH (Ardia et al., 2019)
 #
 # Execute da raiz, depois de scripts/msgarch_inputs.py:
-#   Rscript r/msgarch_benchmark.R
+#   Rscript r/msgarch_benchmark.R [pasta]   (padrão: reports/tables/msgarch)
 #
 # Para cada janela walk-forward:
 #   1. ajusta MS-GARCH(1,1) Student-t com K = 2 e K = 3 estados (FitML) só nos
@@ -19,7 +19,8 @@
 
 suppressMessages({library(MSGARCH); library(arrow)})
 
-dir <- "reports/tables/msgarch"
+args <- commandArgs(trailingOnly = TRUE)
+dir <- if (length(args)) args[1] else "reports/tables/msgarch"
 returns <- as.data.frame(read_parquet(file.path(dir, "inputs_returns.parquet")))
 folds <- as.data.frame(read_parquet(file.path(dir, "inputs_folds.parquet")))
 targets <- as.data.frame(read_parquet(file.path(dir, "inputs_targets.parquet")))

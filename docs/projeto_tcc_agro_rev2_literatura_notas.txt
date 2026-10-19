@@ -1,0 +1,15 @@
+VERSÃO INTEGRADA DA REVISÃO DE LITERATURA — 19/10/2026
+
+Arquivo principal: docs/projeto_tcc_agro_rev2_literatura.docx.
+
+A nova cópia integra a revisão narrativa crítica de 11 seções e 34 referências, com cinco equações editáveis. Introdução, hipóteses, objetivos e metodologia foram harmonizados com a fundamentação e com a implementação disponível. Dez apêndices apresentam sínteses de estudos, com a extensão efetiva da consulta explicitada. Os documentos originais e o capítulo separado foram preservados.
+
+A redação não afirma bibliometria, consultas autenticadas a bases ou leitura integral de artigos quando isso não ocorreu. Corrige a carteira genérica da metodologia anterior, a interpretação de dropout como distribuição de perdas e a confusão entre cobertura estatística, equivalência e superioridade. Os resultados dos experimentos não foram inventados nem declarados definitivos.
+
+Esta versão mantém a natureza de projeto. A validação final dos dados e rolagens dos futuros, a auditoria dos horários de informação e a execução do MS-GARCH continuam pendentes. A ausência de R foi respeitada; nenhuma nova instalação foi tentada. O uso de indicadores Cepea é descrito somente como análise separada, sem substituir a versão com futuros.
+
+O sumário é um campo nativo do Word, preparado para atualizar na abertura. Se o editor não atualizar automaticamente, selecione o sumário e escolha Atualizar campo/Atualizar o índice inteiro. Seus números de página não foram preenchidos por estimativa. Confira também os campos de numeração e a paginação após abrir o arquivo.
+
+A conferência usou uma prévia alternativa do próprio DOCX porque a exportação nativa por Word/LibreOffice estava indisponível. Foram inspecionadas 44 páginas dessa prévia, sem cortes detectados, e os 481 parágrafos de texto foram comparados ao arquivo. Essa contagem pode mudar no Word. A normalização final deve seguir o manual vigente do curso; não foi emitida certificação ABNT.
+
+Comentários antigos associados a trechos substituídos foram arquivados apenas em work/literature/integrated/comentarios_rev1_arquivados.zip e retirados da cópia nova. Permanecem nos originais. O registro de verificação está em reports/tables/projeto_tcc_agro_rev2_verificacao.json.

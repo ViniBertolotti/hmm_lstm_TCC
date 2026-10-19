@@ -10,6 +10,10 @@ EWMA da carteira conhecida na origem. Na HMM-LSTM, a cauda vem dos erros do
 regime atual quando há erros suficientes.
 
 Saídas em reports/tables/walk_forward/: previsões por janela e um manifesto.
+
+Robustez ativo a ativo: --target-asset SLCE3.SA troca o alvo pelo log-retorno do ativo
+(em reais) e a escala pela EWMA dele. Entradas, janelas e regime do HMM continuam os
+da carteira, para que o "estresse" seja o mesmo do experimento principal.
 """
 from pathlib import Path
 import argparse
@@ -35,6 +39,7 @@ def main():
     parser.add_argument("--mc-samples", type=int, default=None)
     parser.add_argument("--min-regime-pool", type=int, default=100)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "reports/tables/walk_forward")
+    parser.add_argument("--target-asset", help="alvo univariado (ex.: KC=F); padrão: carteira")
     args = parser.parse_args()
 
     config = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
@@ -43,8 +48,12 @@ def main():
     sessions = get_b3_trading_days(features.index.min(), features.index.max())
     features, portfolio = features.reindex(sessions), portfolio.reindex(sessions)
 
+    start = portfolio.dropna().index.min()  # janelas sempre definidas pela carteira
+    hmm_observations = None
+    if args.target_asset:
+        hmm_observations = portfolio
+        portfolio = features[[(args.target_asset, "return_1d")]].set_axis(["return_1d"], axis=1)
     scale = ewma_volatility(portfolio["return_1d"], lam=0.94)
-    start = portfolio.dropna().index.min()
     splits = make_risk_walk_forward_splits(sessions[sessions >= start], calibration_sessions=252)
     chosen = args.folds if args.folds else range(len(splits))
 
@@ -62,7 +71,8 @@ def main():
         t0 = time.time()
         data = build_risk_split_dataset(features, portfolio, split, sessions=sessions, lookback=42,
                                         vif_threshold=config["features"]["vif_threshold"],
-                                        hmm_n_init=10, random_state=config["random_seed"])
+                                        hmm_n_init=10, random_state=config["random_seed"],
+                                        hmm_observations=hmm_observations)
         frames, calibrations = [], []
         for include in (False, True):
             result = run_risk_fold(data, training_config=training, mc_samples=mc, mc_seed=config["random_seed"],

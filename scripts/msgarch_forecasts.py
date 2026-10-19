@@ -10,6 +10,7 @@ outros modelos. O VaR/ES paramétrico da densidade preditiva (Student-t por
 estado) vai para um arquivo separado, como análise de sensibilidade.
 """
 from pathlib import Path
+import argparse
 import sys
 
 import numpy as np
@@ -36,9 +37,16 @@ def _naive_dates(frame, columns):
 
 
 def main():
-    forecasts = _naive_dates(pd.read_parquet(DIR / "msgarch_forecasts.parquet"), ["origin", "target"])
-    residuals = _naive_dates(pd.read_parquet(DIR / "msgarch_residuals.parquet"), ["date"])
-    actual = pd.concat([pd.read_parquet(p) for p in sorted(SOURCE.glob("forecasts_fold*.parquet"))])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--target-asset", help="robustez ativo a ativo (padrão: carteira)")
+    args = parser.parse_args()
+    source, directory = SOURCE, DIR
+    if args.target_asset:
+        source = ROOT / "reports/tables/univariado" / args.target_asset
+        directory = source / "msgarch"
+    forecasts = _naive_dates(pd.read_parquet(directory / "msgarch_forecasts.parquet"), ["origin", "target"])
+    residuals = _naive_dates(pd.read_parquet(directory / "msgarch_residuals.parquet"), ["date"])
+    actual = pd.concat([pd.read_parquet(p) for p in sorted(source.glob("forecasts_fold*.parquet"))])
     actual = (actual[actual.model == "zero_mean_reference"]
               .drop_duplicates("target").set_index("target")[["actual_log_return", "actual_loss"]])
 
@@ -62,7 +70,7 @@ def main():
         frame = pd.DataFrame(data).join(actual, on="target")
         if frame[["actual_log_return", "var", "es"]].isna().any().any():
             raise ValueError(f"{name}: alvo sem realização ou risco ausente.")
-        frame.to_parquet(DIR / name, index=False)
+        frame.to_parquet(directory / name, index=False)
     print(pd.DataFrame(rows).groupby("confidence")[["var", "es"]].describe().T.round(4))
 
 

@@ -61,8 +61,10 @@ def fhs_scenarios(frame, calibrations, manifest, *, sessions, min_regime_pool):
     return days
 
 
-def msgarch_scenarios(benchmark):
-    residuals = pd.read_parquet(MSGARCH_DIR / "msgarch_residuals.parquet")
+def msgarch_scenarios(benchmark, msgarch_dir=MSGARCH_DIR):
+    residuals = pd.read_parquet(msgarch_dir / "msgarch_residuals.parquet")
+    if residuals.date.dt.tz is not None:
+        residuals["date"] = residuals.date.dt.tz_convert("UTC").dt.tz_localize(None)
     pools = {fold: group.z.to_numpy() for fold, group in residuals.groupby("fold")}
     days = []
     for target, day in benchmark.groupby("target"):
@@ -83,6 +85,7 @@ def main():
     parser.add_argument("--es-simulations", type=int, default=999)
     parser.add_argument("--min-regime-pool", type=int, default=100, help="O mesmo usado em run_walk_forward.py.")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--msgarch-dir", type=Path, default=MSGARCH_DIR)
     args = parser.parse_args()
     source = args.input_dir.resolve()
     paths = sorted(source.glob("forecasts_fold*.parquet"))
@@ -95,7 +98,7 @@ def main():
     inputs = paths+[manifest_path]
 
     benchmark = None
-    msgarch_path = MSGARCH_DIR / "forecasts_msgarch.parquet"
+    msgarch_path = args.msgarch_dir / "forecasts_msgarch.parquet"
     if msgarch_path.exists():
         benchmark = pd.read_parquet(msgarch_path)
         inputs.append(msgarch_path)
@@ -107,7 +110,7 @@ def main():
         full_sessions = get_b3_trading_days(calibrations.origin.min(), frame.target.max())
         days = fhs_scenarios(frame, calibrations, manifest, sessions=full_sessions, min_regime_pool=args.min_regime_pool)
         if benchmark is not None:
-            days["ms_garch"] = msgarch_scenarios(benchmark)
+            days["ms_garch"] = msgarch_scenarios(benchmark, args.msgarch_dir)
         for i, (model, model_days) in enumerate(sorted(days.items())):
             null_losses[model] = sample_scenario_losses(model_days, n_simulations=args.es_simulations, seed=args.seed + i)
         inputs += calibration_paths

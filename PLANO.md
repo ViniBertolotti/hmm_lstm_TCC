@@ -285,8 +285,8 @@ fica como referência; vale este:
 - [ ] Consolidar tabelas/figuras finais em `reports/tables` e `reports/figures`
 
 ## Semana 11 — 04 a 10/11 — Resultados e hipóteses
-- [ ] Testar H1 (cobertura Kupiec), H2 (cobertura condicional em regime de estresse),
-      H3 (Diebold-Mariano em regime de calmaria)
+- [x] Testar H1 (cobertura Kupiec), H2 (cobertura condicional em regime de estresse),
+      H3 (Diebold-Mariano em regime de calmaria) — notebook 06 e `reports/tables/final/T5_hipoteses.csv`
 - [ ] Robustez univariada (ativo a ativo)
 - [ ] Rascunho do capítulo de resultados/discussão
 

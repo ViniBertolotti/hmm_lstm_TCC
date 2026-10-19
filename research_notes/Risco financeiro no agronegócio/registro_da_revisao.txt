@@ -1,0 +1,1 @@
+Revisão concluída em 19/10/2026. Fontes e alcance da consulta em docs/revisao_literatura_fontes.json; conferência em reports/tables/revisao_literatura_verificacao.json. O capítulo foi construído a partir do projeto existente e da consulta documentada a fontes primárias.
