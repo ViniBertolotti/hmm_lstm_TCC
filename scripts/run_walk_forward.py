@@ -37,9 +37,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--folds", type=int, nargs="*", help="janelas a rodar (padrão: todas)")
     parser.add_argument("--mc-samples", type=int, default=None)
-    parser.add_argument("--min-regime-pool", type=int, default=100)
+    parser.add_argument("--min-regime-pool", type=int, default=None, help="padrão: config.yaml")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "reports/tables/walk_forward")
     parser.add_argument("--target-asset", help="alvo univariado (ex.: KC=F); padrão: carteira")
+    parser.add_argument("--resume", action="store_true",
+                        help="pula janelas já salvas (o treino é determinístico) e preserva o manifesto")
     args = parser.parse_args()
 
     config = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
@@ -53,23 +55,35 @@ def main():
     if args.target_asset:
         hmm_observations = portfolio
         portfolio = features[[(args.target_asset, "return_1d")]].set_axis(["return_1d"], axis=1)
-    scale = ewma_volatility(portfolio["return_1d"], lam=0.94)
-    splits = make_risk_walk_forward_splits(sessions[sessions >= start], calibration_sessions=252)
+    risk_cfg, wf_cfg = config["var_es"], config["split"]["walk_forward"]
+    min_pool = args.min_regime_pool if args.min_regime_pool is not None else risk_cfg["min_regime_pool"]
+    scale = ewma_volatility(portfolio["return_1d"], lam=risk_cfg["ewma_lambda"])
+    splits = make_risk_walk_forward_splits(sessions[sessions >= start], development_years=wf_cfg["development_years"],
+                                           test_months=wf_cfg["test_months"], step_months=wf_cfg["step_months"],
+                                           calibration_sessions=wf_cfg["calibration_sessions"],
+                                           validation_fraction=wf_cfg["validation_fraction"])
     chosen = args.folds if args.folds else range(len(splits))
 
     lstm_cfg = config["lstm"]
-    training = TrainingConfig(hidden=tuple(lstm_cfg["layers"]), dropout=0.3, learning_rate=0.001,
-                              batch_size=32, patience=lstm_cfg["early_stopping_patience"],
+    training = TrainingConfig(hidden=tuple(lstm_cfg["layers"]), dropout=lstm_cfg["dropout"],
+                              learning_rate=lstm_cfg["learning_rate"], batch_size=lstm_cfg["batch_size"],
+                              patience=lstm_cfg["early_stopping_patience"],
                               seed=config["random_seed"])
     mc = args.mc_samples or config["mc_dropout"]["n_samples"]
     out = args.output_dir
     out.mkdir(parents=True, exist_ok=True)
 
     manifests = []
+    if args.resume and (out / "manifest.json").exists():
+        manifests = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        done = {m["fold"] for m in manifests}
+        chosen = [f for f in chosen if f not in done or not (out / f"forecasts_fold{f:02d}.parquet").exists()]
+        manifests = [m for m in manifests if m["fold"] not in chosen]
+        print(f"retomando: {len(done)} janelas prontas, faltam {list(chosen)}", flush=True)
     for fold in chosen:
         split = splits[fold]
         t0 = time.time()
-        data = build_risk_split_dataset(features, portfolio, split, sessions=sessions, lookback=42,
+        data = build_risk_split_dataset(features, portfolio, split, sessions=sessions, lookback=lstm_cfg["lookback"],
                                         vif_threshold=config["features"]["vif_threshold"],
                                         hmm_n_init=10, random_state=config["random_seed"],
                                         hmm_observations=hmm_observations)
@@ -77,7 +91,7 @@ def main():
         for include in (False, True):
             result = run_risk_fold(data, training_config=training, mc_samples=mc, mc_seed=config["random_seed"],
                                    include_regimes=include, confidence_levels=tuple(config["risk"]["confidence_levels"]),
-                                   scale=scale, regime_pools=True, min_regime_pool=args.min_regime_pool)
+                                   scale=scale, regime_pools=True, min_regime_pool=min_pool)
             forecasts = result["forecasts"].assign(fold=fold)
             if include:  # a referência é a mesma nos dois; guarda uma vez só
                 forecasts = forecasts[forecasts.model != "zero_mean_reference"]
@@ -92,6 +106,7 @@ def main():
         pd.concat(calibrations).to_parquet(out / f"calibration_fold{fold:02d}.parquet")
         print(f"janela {fold}: teste {split.test[0].date()} -> {split.test[-1].date()} | "
               f"estados={data['n_states']} | {time.time() - t0:.0f}s", flush=True)
+        manifests.sort(key=lambda m: (m["fold"], m["model"]))
         (out / "manifest.json").write_text(json.dumps(manifests, indent=1, default=str), encoding="utf-8")
 
 

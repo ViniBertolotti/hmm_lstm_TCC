@@ -88,6 +88,7 @@ def main():
     parser.add_argument("--msgarch-dir", type=Path, default=MSGARCH_DIR)
     args = parser.parse_args()
     source = args.input_dir.resolve()
+    args.msgarch_dir = args.msgarch_dir.resolve()
     paths = sorted(source.glob("forecasts_fold*.parquet"))
     if not paths:
         raise ValueError("Nenhum arquivo de previsões encontrado.")

@@ -2,7 +2,7 @@ NOTAS PARA INTEGRAR A REVISÃO DE LITERATURA
 
 A versão principal está em docs/revisao_literatura_agro_rev2.docx. Trata-se de um capítulo separado, com 11 seções, 34 referências e cinco equações editáveis. O pré-projeto original e a revisão anterior não foram alterados.
 
-O capítulo desenvolve uma revisão narrativa crítica. A versão anterior declarava bibliometria e consultas a bases sem apresentar registros correspondentes. A nova redação não afirma buscas autenticadas em Scopus/Web of Science, contagens bibliométricas ou revisão sistemática exaustiva. O alcance da consulta de cada fonte — resumo, metadados ou trechos — está registrado em docs/revisao_literatura_fontes.json.
+O capítulo desenvolve uma revisão narrativa crítica. A versão anterior declarava bibliometria e consultas a bases sem apresentar registros correspondentes. A nova redação não afirma buscas autenticadas em Scopus/Web of Science, contagens bibliométricas ou revisão sistemática exaustiva. O alcance da consulta de cada fonte — resumo, metadados ou trechos — está registrado em docs/apoio/revisao_literatura_fontes.json.
 
 Foram mantidos os fundamentos clássicos pertinentes e acrescentados antecedentes diretos de HMM/LSTM e risco, como De Mel (2026) e Arimond et al. (2026). A existência desses estudos exige rever afirmações amplas de ineditismo na introdução. A contribuição pode ser definida pela exposição agro brasileira, pela comparação compatível e pelo rigor da avaliação.
 

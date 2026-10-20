@@ -154,3 +154,17 @@ def test_es_pvalue_from_paths_drawn_under_the_model_distribution(experiment):
     assert row.es_p <= .01 and row.acerbi_szekely_z2 < 0
     other = result["coverage"].query("modelo == 'hmm_lstm' and nivel == .95 and segmento == 'todos'").iloc[0]
     assert other.es_p is None or np.isnan(other.es_p)
+
+
+def test_fz0_skips_days_with_non_positive_es_and_reports_them(experiment):
+    frame, manifest, sessions = experiment
+    frame = frame.copy()
+    hit = (frame.model == "lstm") & (frame.confidence == .95) & (frame.target == frame.target.min())
+    frame.loc[hit, ["var", "es"]] = [-.02, -.01]  # previsão de ganho até na cauda
+    result = evaluate_forecasts(frame, manifest, sessions=sessions)
+    row = result["comparisons"].query("a == 'hmm_lstm' and b == 'lstm' and nivel == .95 "
+                                      "and segmento == 'todos' and escore == 'fz0_var_es'").iloc[0]
+    assert row.dias_excluidos_es_nao_positivo == 1 and row.n_pares == 59
+    quantile = result["comparisons"].query("a == 'hmm_lstm' and b == 'lstm' and nivel == .95 "
+                                           "and segmento == 'todos' and escore == 'quantilico_var'").iloc[0]
+    assert quantile.n_pares == 60

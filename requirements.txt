@@ -22,7 +22,5 @@ openpyxl
 xlrd
 pyyaml
 matplotlib
-seaborn
 jupyter
 pytest
-rpy2

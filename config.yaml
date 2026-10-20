@@ -53,13 +53,12 @@ features:
   vif_threshold: 10
 
 split:
-  train: 0.70
-  validation: 0.15
-  test: 0.15
   walk_forward:
-    train_window_years: 5
-    test_window_months: 6
+    development_years: 5        # treino + validação + calibração
+    test_months: 6
     step_months: 6
+    calibration_sessions: 252   # erros usados no VaR/ES (simulação histórica filtrada)
+    validation_fraction: 0.15   # do que sobra antes da calibração; só para early stopping
 
 hmm:
   states_range: [2, 3, 4]
@@ -67,14 +66,18 @@ hmm:
   covariance_type: "full"
 
 lstm:
-  lookback_grid: [21, 42, 63]
-  dropout_grid: [0.2, 0.3, 0.4]
-  batch_size_grid: [32, 64]
-  learning_rate_grid: [0.001, 0.0005]
+  # Configuração fixada antes do experimento (não houve busca em grade).
+  lookback: 42
   layers: [64, 32]
-  activation: "tanh"
+  dropout: 0.3
+  batch_size: 32
+  learning_rate: 0.001
   optimizer: "adam"
   early_stopping_patience: 15
+
+var_es:
+  ewma_lambda: 0.94             # escala RiskMetrics da carteira (ou do ativo)
+  min_regime_pool: 100          # HMM-LSTM: cauda do regime só com >= 100 erros
 
 mc_dropout:
   n_samples: 1000
@@ -83,8 +86,8 @@ risk:
   confidence_levels: [0.95, 0.99]
 
 msgarch_benchmark:
-  states_range: [2, 3]
+  states_range: [2, 3]          # escolhido pelo BIC no desenvolvimento
   distribution: "student_t"
-  method: "FHS"
+  method: "FHS"                 # paramétrico guardado como sensibilidade
 
 random_seed: 42

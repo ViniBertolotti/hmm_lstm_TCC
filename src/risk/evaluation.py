@@ -200,17 +200,25 @@ SCORES = {"quantilico_var": lambda s, level: quantile_score(s.actual_loss.to_num
 def dm_row(frame, a, b, level, sessions, dates, max_lag, score="quantilico_var"):
     if len(dates) < max(10, max_lag+1):
         return {"status": "amostra_insuficiente", "n_pares": len(dates)}, {}
-    scores = {}
-    for model in (a, b):
-        subset = frame[(frame.model == model) & (frame.confidence == level)].set_index("target").loc[dates]
-        scores[model] = pd.Series(SCORES[score](subset, level), index=subset.index)
+    subsets = {model: frame[(frame.model == model) & (frame.confidence == level)].set_index("target").loc[dates]
+               for model in (a, b)}
+    excluded = 0
+    if score == "fz0_var_es":
+        # FZ0 só é definido com ES > 0. Dias em que algum modelo prevê ganho até na cauda
+        # saem do par; a regra usa só as previsões, não o resultado.
+        valid = (subsets[a].es > 0) & (subsets[b].es > 0)
+        excluded = int((~valid).sum())
+        subsets = {model: subset[valid.to_numpy()] for model, subset in subsets.items()}
+        if len(subsets[a]) < max(10, max_lag+1):
+            return {"status": "amostra_insuficiente", "n_pares": len(subsets[a]), "dias_excluidos_es_nao_positivo": excluded}, {}
+    scores = {model: pd.Series(SCORES[score](subset, level), index=subset.index) for model, subset in subsets.items()}
     result = diebold_mariano(scores[a], scores[b], sessions=sessions, max_lag=max_lag)
     lower = upper = standard_error = None
     if result["status"] == "computed":
         standard_error = float(np.sqrt(result["long_run_variance"]/result["n_paired"]))
         half_width = float(norm.ppf(.975))*standard_error
         lower, upper = result["mean_loss_a_minus_b"]-half_width, result["mean_loss_a_minus_b"]+half_width
-    return {"status": result["status"], "n_pares": len(dates),
+    return {"status": result["status"], "n_pares": len(scores[a]), "dias_excluidos_es_nao_positivo": excluded,
             "media_escore_a": float(scores[a].mean()), "media_escore_b": float(scores[b].mean()),
             "diferenca_a_menos_b": result["mean_loss_a_minus_b"],
             "erro_padrao_hac": standard_error, "diferenca_ic95_inferior": lower, "diferenca_ic95_superior": upper,

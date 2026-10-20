@@ -8,56 +8,23 @@ agro/commodities.
 Cada semana lista entregáveis objetivos (arquivos que devem existir e rodar) para facilitar
 acompanhamento. Marque `[x]` ao concluir.
 
-## Estado verificado e prioridades (19/10/2026)
+## Estado atual (20/10/2026)
 
-Esta avaliação qualifica as marcações do cronograma abaixo. Código escrito e
-testes simulados não demonstram validade das séries ou desempenho financeiro.
+**Pipeline completo rodando e reproduzível** (ver "Como reproduzir" no README):
+dados → features → HMM (Forward causal) → LSTM/HMM-LSTM no walk-forward → VaR/ES por
+simulação histórica filtrada → MS-GARCH (R) → backtests (Kupiec, Christoffersen,
+Acerbi–Székely com p-valor, Diebold–Mariano com escores quantílico e FZ0) → notebooks 04-08
+→ tabelas finais em `reports/tables/final/`.
 
-- **Futuros e rolagens:** a fonte definitiva permanece pendente. A lógica por
-  razão usa preços simultâneos dos contratos e preserva o retorno de mercado;
-  foram verificados casos simulados, sem corrigir os arquivos Yahoo/Bloomberg.
-  O candidato público não tem aprovação final de procedência/licenciamento,
-  OHLCV, calendário ex ante e liquidez. Não remover retornos extremos sem prova.
-  Dois boletins oficiais do USDA confirmaram vencimentos distintos da soja e
-  coincidência pontual do Yahoo com o primeiro contrato listado. Cobertura
-  diária de 2005-2024 e solução para o café continuam sem confirmação. Evidência
-  em `reports/tables/futures_source_audit.json`; não é uma base final corrigida.
-- **Modelos e risco:** módulos mínimos de LSTM, MC Dropout, VaR/ES, calibração
-  de erros e backtests têm verificações sintéticas. O executor separa treino,
-  seleção/early stopping, calibração posterior e teste. Reservar 252 sessões
-  para calibração dentro dos cinco anos de desenvolvimento reduz o treino
-  efetivo; esse protocolo precisa ser explicitado. A cauda empírica a 99% é
-  pequena e não sustenta conclusões fortes com essa amostra. Dispersão do
-  dropout não equivale à distribuição das perdas. Uma rodada exploratória já
-  produziu as previsões descritas abaixo; a validação final da base e a comparação
-  completa com MS-GARCH continuam pendentes.
-- **R/MS-GARCH:** adiado pelo usuário até obter liberação do TI. O piloto
-  preparado ainda não foi executado; não declarar o benchmark validado.
-- **Fonte e escopo:** usar alternativas sem custo, preservar a especificação
-  com futuros e avaliar CEPEA separadamente. Mudanças de mercado, vencimentos,
-  features e período exigem justificativa e discussão com o orientador.
-  O ensaio separado CEPEA executou LSTM e HMM-LSTM na primeira janela de teste
-  (29/06 a 28/12/2012), com informações defasadas em um pregão e alvo preservado.
-  Restaram 278 sequências de treino, 129 erros de calibração e 122 previsões de
-  teste. Houve 94 retornos zero da soja nos 123 pregões do bloco. Ambos os
-  modelos tiveram MSE de retorno ligeiramente maior que a referência zero.
-  A disponibilidade de amostras e a cauda de 99% exigem revisão; não houve
-  substituição da versão com futuros nem conclusão sobre H1-H3. Evidência em
-  `reports/tables/cepea_pilot_interpretation.json`.
-  A nova consulta Yahoo reproduziu três datas sem cotações das quatro ações.
-  Para SLCE3, a ausência também está na resposta bruta do provedor. O ofício
-  072/2020-PRE da B3 confirma pregão normal em 20/11/2020; não transformar
-  ausência de preço em feriado nem preencher automaticamente. As outras duas
-  datas seguem sem confirmação primária de calendário nesta auditoria.
-  Evidência em `reports/tables/equity_gap_probe.json`.
-- **Resultados e texto:** notebooks 02/03 precisam ser reexecutados após validar
-  a base final. Experimentos financeiros, comparação dos modelos, discussão
-  H1-H3, revisão ABNT e pôster continuam pendentes.
-  H1-H3 foram conferidas no documento: a interpretação de H3 precisa distinguir
-  ausência de diferença detectada de evidência de não inferioridade. Também é
-  necessário remover a exigência de sustentar uma hipótese como condição de
-  sucesso científico. Auditoria em `reports/tables/hypotheses_audit.json`;
-  documento original preservado.
+- **Dados:** 06/2007 a 03/2024 (fim da série pública do café). Futuros de soja e café com
+  rolagem por razão a partir do pysystemtrade (SHA256 conferido), só fechamento.
+  Licenciamento da fonte: uso acadêmico com citação — confirmar com o orientador.
+- **Resultado principal (23 janelas, 2.717 dias de teste):** os quatro modelos têm cobertura
+  compatível no total; o MS-GARCH é o melhor nos escores e o único que não subestima o ES no
+  total; H1 parcial, H2 não sustentada, H3 rejeitada (formulação do pré-projeto).
+- **Em aberto (decisão com o orientador):** título; manter a redação original de H1-H3 (a rev2
+  reescreveu H3 depois dos resultados); CEPEA só como análise separada
+  (`scripts/pilot_cepea.py`); 4 vs. 3 estados no HMM.
 
 ## Rodada exploratória fora da amostra (19/10/2026)
 
@@ -94,11 +61,8 @@ Tabelas em `reports/tables/walk_forward/`.
   conclusão. Qualquer variação (sem cauda por regime, outro mínimo, LSTM prevendo
   volatilidade em vez de média) entra como análise de sensibilidade declarada como tal.
 
-A avaliação auditada está em `reports/tables/walk_forward/evaluation_v2/`. Confere
-manifesto, janelas, unidades, horizonte e pareamento, preserva lacunas e inclui ICs,
-contagens de transições e limitações. Os 27 arquivos anteriores e suas métricas foram
-preservados. A verificação relevante passou em 20 testes; não autentica os preços,
-os horários de publicação ou a execução histórica do treinamento.
+Esta rodada foi superada pela de baixo, com o MS-GARCH (`evaluation_v3/`). As saídas antigas
+(v1, v2 e auditorias) estão em `reports/archive/2026-10-20_limpeza/`.
 
 ## Rodada com o benchmark MS-GARCH (19/10/2026)
 
@@ -140,7 +104,7 @@ usados para o p-valor Acerbi–Székely (999 trajetórias sob H0, VaR/ES fixos) 
 - [x] Salvar `docs/poster_mostraTCC1_2026-2_agro.pptx`, com gráficos e fluxograma editáveis,
   resultados explicitamente exploratórios e pendências dos futuros/MS-GARCH visíveis.
 - [x] Conferir a página renderizada, os dados dos gráficos, as planilhas embutidas e
-  a preservação do template. Registro: `reports/tables/poster_mostraTCC1_2026-2_verificacao.json`.
+  a preservação do template. Registro: `reports/archive/2026-10-20_limpeza/auditorias/`.
 - [ ] Acrescentar o e-mail do orientador quando ele enviar, conforme resposta do usuário.
 - [ ] Obter a revisão do orientador e a liberação da versão de apresentação.
 
@@ -150,18 +114,18 @@ usados para o p-valor Acerbi–Székely (999 trajetórias sob H0, VaR/ES fixos) 
   `docs/revisao_literatura_agro_rev2.docx`. Originais preservados.
 - [x] Conferir fontes, alcance das consultas, fórmulas e integridade do texto;
   verificar visualmente a prévia do DOCX. Registro em
-  `reports/tables/revisao_literatura_verificacao.json`.
+  `reports/archive/2026-10-20_limpeza/auditorias/`.
 - [x] Integrar o capítulo em nova cópia do projeto e harmonizar introdução,
   metodologia, remissões e lista geral de referências; substituir os dez
   apêndices por sínteses conferidas. Arquivo:
   `docs/projeto_tcc_agro_rev2_literatura.docx`. Sumário nativo preparado para
-  atualização no Word; ver `docs/projeto_tcc_agro_rev2_literatura_notas.txt`.
-  Verificação: `reports/tables/projeto_tcc_agro_rev2_verificacao.json`.
+  atualização no Word; ver `docs/apoio/projeto_tcc_agro_rev2_literatura_notas.txt`.
+  Verificação: `reports/archive/2026-10-20_limpeza/auditorias/`.
 - [ ] Conferir a paginação final no Word e o manual vigente do curso.
 
 Esta entrega fundamenta o estudo e não constitui conclusão dos experimentos,
 validação dos futuros ou aprovação das hipóteses H1–H3. Notas de integração em
-`docs/revisao_literatura_notas.txt`.
+`docs/apoio/revisao_literatura_notas.txt`.
 
 ## Replanejamento (19/10/2026)
 
@@ -266,8 +230,8 @@ fica como referência; vale este:
 - [x] VaR/ES via FHS (vol MS-GARCH × resíduos padronizados do desenvolvimento); ponte por
       parquet (`scripts/msgarch_inputs.py` → R → `scripts/msgarch_forecasts.py`); paramétrico
       Student-t guardado como sensibilidade
-- [ ] Comparar ativo a ativo (univariado). Nível de carteira feito sobre o retorno agregado
-      (não por variâncias ponderadas, que ignorariam covariâncias)
+- [x] Comparar ativo a ativo (univariado): MS-GARCH por ativo, notebook 08. Nível de carteira feito
+      sobre o retorno agregado (não por variâncias ponderadas, que ignorariam covariâncias)
 
 ## Semana 9 — 21 a 27/10 — Backtesting
 - [x] `src/risk/backtests.py`: Kupiec (1995), Christoffersen (1998), Acerbi-Székely com p-valor
@@ -282,12 +246,15 @@ fica como referência; vale este:
 - [x] SHAP (GradientExplainer) na HMM-LSTM das janelas 14 e 20, dentro do notebook 07 (sem módulo
       separado): regime pesa 1-4%; entradas influentes instáveis entre janelas
 - [x] `notebooks/07_shap_interpretability.ipynb`
-- [ ] Consolidar tabelas/figuras finais em `reports/tables` e `reports/figures`
+- [x] Consolidar tabelas/figuras finais: `scripts/build_final_tables.py` → `reports/tables/final/`
+      (T1-T8 + `tabelas_tcc.xlsx`); figuras dos notebooks 04-08 em `reports/figures/`
 
 ## Semana 11 — 04 a 10/11 — Resultados e hipóteses
 - [x] Testar H1 (cobertura Kupiec), H2 (cobertura condicional em regime de estresse),
       H3 (Diebold-Mariano em regime de calmaria) — notebook 06 e `reports/tables/final/T5_hipoteses.csv`
-- [ ] Robustez univariada (ativo a ativo)
+- [x] Robustez univariada (ativo a ativo): mesmo protocolo, alvo = ativo, regime da carteira.
+      HMM-LSTM nunca vence o MS-GARCH; MS-GARCH melhor em 1-3 dos 7 ativos; ES 99% do
+      MS-GARCH não rejeitado em nenhum ativo (notebook 08, T7/T8)
 - [ ] Rascunho do capítulo de resultados/discussão
 
 ## Semana 12 — 11 a 17/11 — Revisão da Metodologia/Literatura

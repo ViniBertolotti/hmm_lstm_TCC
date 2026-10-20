@@ -45,16 +45,17 @@ licenciamento dos dados; o uso aqui é acadêmico, com citação.
 ## Estrutura do repositório
 
 ```
-hmm_lstm_agro/
-├── config.yaml            # ativos, datas, hiperparâmetros, seeds
-├── requirements.txt       # dependências Python
-├── r/                      # benchmark MS-GARCH (R, pacote MSGARCH)
-├── data/{raw,interim,processed}
-├── notebooks/              # pipeline numerado, ponta a ponta
-├── src/{data,models,risk,interpretability}
-├── reports/{figures,tables}
-├── tests/
-└── docs/                   # pré-projeto original e material de apoio
+hmm_lstm_TCC/
+├── config.yaml            # ativos, datas, janelas, hiperparâmetros e semente
+├── requirements.txt       # dependências Python (versões exatas em requirements-lock.txt)
+├── r/                     # benchmark MS-GARCH (R, pacote MSGARCH)
+├── scripts/               # etapas do experimento (ver tabela abaixo)
+├── src/{data,models,risk} # código testado do pipeline
+├── notebooks/             # 01-03 dados, features e HMM; 04-08 resultados
+├── tests/                 # pytest
+├── data/{raw,interim,processed}   # não versionado
+├── reports/{tables,figures}       # saídas (não versionadas; tabelas finais em tables/final)
+└── docs/                  # projeto (docx), pôster, pesquisa/ e apoio/
 ```
 
 ## Como reproduzir
