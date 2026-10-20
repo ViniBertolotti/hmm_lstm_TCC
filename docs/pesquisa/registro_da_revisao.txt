@@ -1,1 +1,6 @@
-Revisão concluída em 19/10/2026. Fontes e alcance da consulta em docs/revisao_literatura_fontes.json; conferência em reports/tables/revisao_literatura_verificacao.json. O capítulo foi construído a partir do projeto existente e da consulta documentada a fontes primárias.
+Revisão preparada em 19/10/2026.
+
+Texto: docs/pesquisa/Risco financeiro no agronegócio.md.
+Fontes e alcance da consulta: docs/apoio/revisao_literatura_fontes.json.
+Registros de conferência: reports/archive/2026-10-20_limpeza/auditorias/.
+Versão integrada ao projeto: docs/projeto_tcc_agro_rev2_literatura.docx.

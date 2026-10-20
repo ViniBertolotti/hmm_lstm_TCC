@@ -1,15 +1,14 @@
-VERSÃO INTEGRADA DA REVISÃO DE LITERATURA — 19/10/2026
+PROJETO INTEGRADO — NOTAS DE REVISÃO
 
-Arquivo principal: docs/projeto_tcc_agro_rev2_literatura.docx.
+Arquivo: docs/projeto_tcc_agro_rev2_literatura.docx.
+Versão do documento: 19/10/2026. Notas atualizadas em 20/10/2026.
 
-A nova cópia integra a revisão narrativa crítica de 11 seções e 34 referências, com cinco equações editáveis. Introdução, hipóteses, objetivos e metodologia foram harmonizados com a fundamentação e com a implementação disponível. Dez apêndices apresentam sínteses de estudos, com a extensão efetiva da consulta explicitada. Os documentos originais e o capítulo separado foram preservados.
+A versão integra a revisão narrativa de 11 seções e 34 referências, cinco equações editáveis e dez apêndices com sínteses de estudos. Introdução, objetivos e metodologia foram ajustados durante a integração. O pré-projeto, a revisão anterior e o capítulo separado foram preservados.
 
-A redação não afirma bibliometria, consultas autenticadas a bases ou leitura integral de artigos quando isso não ocorreu. Corrige a carteira genérica da metodologia anterior, a interpretação de dropout como distribuição de perdas e a confusão entre cobertura estatística, equivalência e superioridade. Os resultados dos experimentos não foram inventados nem declarados definitivos.
+O documento antecede a consolidação do experimento. Passagens que tratam a execução do MS-GARCH e a reconstrução dos futuros como pendentes precisam ser atualizadas. O fluxo executado e as tarefas restantes estão em README.md e PLANO.md.
 
-Esta versão mantém a natureza de projeto. A validação final dos dados e rolagens dos futuros, a auditoria dos horários de informação e a execução do MS-GARCH continuam pendentes. A ausência de R foi respeitada; nenhuma nova instalação foi tentada. O uso de indicadores Cepea é descrito somente como análise separada, sem substituir a versão com futuros.
+Conferir a formulação de H3 com o pré-projeto: ela foi alterada na versão integrada. A tabela final T5 usa o critério do pré-projeto. A redação de resultados precisa explicitar essa diferença.
 
-O sumário é um campo nativo do Word, preparado para atualizar na abertura. Se o editor não atualizar automaticamente, selecione o sumário e escolha Atualizar campo/Atualizar o índice inteiro. Seus números de página não foram preenchidos por estimativa. Confira também os campos de numeração e a paginação após abrir o arquivo.
+Ao abrir no Word, atualizar o sumário inteiro e conferir os campos de numeração, as remissões e a paginação. A conferência anterior usou uma prévia alternativa; a normalização final depende do manual do curso.
 
-A conferência usou uma prévia alternativa do próprio DOCX porque a exportação nativa por Word/LibreOffice estava indisponível. Foram inspecionadas 44 páginas dessa prévia, sem cortes detectados, e os 481 parágrafos de texto foram comparados ao arquivo. Essa contagem pode mudar no Word. A normalização final deve seguir o manual vigente do curso; não foi emitida certificação ABNT.
-
-Comentários antigos associados a trechos substituídos foram arquivados apenas em work/literature/integrated/comentarios_rev1_arquivados.zip e retirados da cópia nova. Permanecem nos originais. O registro de verificação está em reports/tables/projeto_tcc_agro_rev2_verificacao.json.
+Os comentários da revisão anterior permanecem nos documentos originais. Os registros de conferência foram arquivados em reports/archive/2026-10-20_limpeza/auditorias/.
