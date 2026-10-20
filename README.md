@@ -51,7 +51,7 @@ hmm_lstm_TCC/
 ├── r/                     # benchmark MS-GARCH (R, pacote MSGARCH)
 ├── scripts/               # etapas do experimento (ver tabela abaixo)
 ├── src/{data,models,risk} # código testado do pipeline
-├── notebooks/             # 01-03 dados, features e HMM; 04-08 resultados
+├── notebooks/             # 01-03 dados, features e HMM; 04-09 resultados
 ├── tests/                 # pytest
 ├── data/{raw,interim,processed}   # não versionado
 ├── reports/{tables,figures}       # saídas (não versionadas; tabelas finais em tables/final)
@@ -74,9 +74,10 @@ hmm_lstm_TCC/
 | LSTM e HMM-LSTM no walk-forward | `python scripts/run_walk_forward.py` | ~30 min |
 | MS-GARCH | `python scripts/msgarch_inputs.py`, `Rscript r/msgarch_benchmark.R`, `python scripts/msgarch_forecasts.py` | ~5 min |
 | backtests | `python scripts/evaluate_walk_forward.py` | ~2 min |
+| PIT e CRPS (distribuição inteira) | `python scripts/evaluate_density.py` | ~2 min |
 | robustez ativo a ativo | as mesmas etapas com `--target-asset ATIVO` (ver `scripts/summarize_univariate.py`) | ~1 h em paralelo |
 | tabelas finais | `python scripts/build_final_tables.py` → `reports/tables/final/` | segundos |
-| análises e figuras | notebooks 04 → 08 → `reports/figures/` | ~15 min |
+| análises e figuras | notebooks 04 → 09 → `reports/figures/` | ~15 min |
 
 O treino é determinístico em CPU (semente fixa): repetir `run_walk_forward.py` reproduz as
 previsões bit a bit. O teste é usado uma única vez, sem ajuste posterior de hiperparâmetros.

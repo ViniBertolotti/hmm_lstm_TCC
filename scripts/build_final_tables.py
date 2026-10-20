@@ -4,7 +4,7 @@ Execute da raiz depois de evaluate_walk_forward.py (carteira) e summarize_univar
     .venv/Scripts/python scripts/build_final_tables.py
 
 Não recalcula modelos: só reorganiza saídas já geradas, com nomes e unidades legíveis,
-para copiar para o texto. As figuras ficam em reports/figures/ (notebooks 04-08).
+para copiar para o texto. As figuras ficam em reports/figures/ (notebooks 04-09).
 """
 from pathlib import Path
 import json
@@ -154,6 +154,29 @@ def univariate():
     return rate, pairs
 
 
+def density():
+    directory = WF / "density"
+    if not (directory / "resumo.csv").exists():
+        return None, None
+    summary = pd.read_csv(directory / "resumo.csv")
+    summary["modelo"] = summary.modelo.map(NAMES)
+    summary["segmento"] = summary.segmento.map(SEGMENTS)
+    summary["CRPS médio %"] = summary.crps_medio * 100
+    summary = summary.rename(columns={"ks": "KS", "ks_p": "KS p", "berkowitz_p": "Berkowitz p",
+                                      "berkowitz_mu": "μ", "berkowitz_sigma": "σ", "berkowitz_rho": "ρ",
+                                      "pit_abaixo_5%": "PIT < 0,05", "pit_acima_95%": "PIT > 0,95"})
+    summary = summary[["segmento", "modelo", "n", "CRPS médio %", "KS", "KS p", "Berkowitz p", "μ", "σ", "ρ",
+                       "PIT < 0,05", "PIT > 0,95"]]
+    dm = pd.read_csv(directory / "crps_dm.csv")
+    dm["a"], dm["b"] = dm.a.map(NAMES), dm.b.map(NAMES)
+    dm["segmento"] = dm.segmento.map(SEGMENTS)
+    dm["melhor (p<0,05)"] = np.where(dm.dm_p < .05, np.where(dm.diferenca_a_menos_b > 0, dm.b, dm.a), "—")
+    dm["CRPS a %"], dm["CRPS b %"] = dm.crps_a * 100, dm.crps_b * 100
+    dm = dm[["segmento", "a", "b", "CRPS a %", "CRPS b %", "dm", "dm_p", "melhor (p<0,05)"]].rename(
+        columns={"dm": "DM", "dm_p": "p"})
+    return summary, dm
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     cov = pd.read_csv(EVAL / "backtest_cobertura.csv")
@@ -161,6 +184,10 @@ def main():
     tables = {"T1_estatisticas_descritivas": descriptive(), "T2_janelas_walk_forward": windows(),
               "T3_cobertura_var_es": coverage(cov), "T4_comparacoes_dm": comparisons(dm),
               "T5_hipoteses": hypotheses(cov, dm), "T6_msgarch_parametros": msgarch_fits()}
+    pit, crps = density()
+    if pit is not None:
+        tables["T9_pit_crps"] = pit
+        tables["T10_crps_dm"] = crps
     rate, pairs = univariate()
     if rate is not None:
         tables["T7_univariado_violacoes"] = rate

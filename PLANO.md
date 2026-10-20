@@ -249,6 +249,10 @@ fica como referência; vale este:
 - [x] Consolidar tabelas/figuras finais: `scripts/build_final_tables.py` → `reports/tables/final/`
       (T1-T8 + `tabelas_tcc.xlsx`); figuras dos notebooks 04-08 em `reports/figures/`
 
+- [x] PIT e CRPS (sugestão do chefe, 20/10): `src/risk/density.py`, `scripts/evaluate_density.py`,
+      notebook 09, tabelas T9/T10. MS-GARCH é o mais próximo da diagonal no PIT (KS p = 0,96) e
+      o menor CRPS (DM p ≤ 0,02 contra todos)
+
 ## Semana 11 — 04 a 10/11 — Resultados e hipóteses
 - [x] Testar H1 (cobertura Kupiec), H2 (cobertura condicional em regime de estresse),
       H3 (Diebold-Mariano em regime de calmaria) — notebook 06 e `reports/tables/final/T5_hipoteses.csv`
