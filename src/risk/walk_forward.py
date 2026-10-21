@@ -88,9 +88,10 @@ def run_risk_fold(data, *, training_config=TrainingConfig(), mc_samples=1000,
     calibration['dropout_sd'] = summaries['calibration']['dropout_sd']
     calibration['scale'] = _scale_at(scale, data['dates_calibration'])
     use_pools = include_regimes and regime_pools
-    if use_pools:
-        calibration['regime'] = _regime_at_origin(data, 'calibration')
+    if include_regimes:
         test_regime = _regime_at_origin(data, 'test')
+        if use_pools:
+            calibration['regime'] = _regime_at_origin(data, 'calibration')
     test_scale = _scale_at(scale, data['dates_test'])
     metadata = dict(sessions=data['sessions'], model_fit_end=data['model_fit_end'],
         model_selection_end=data['model_selection_end'], as_of=data['calibration_available_at'],
@@ -103,7 +104,7 @@ def run_risk_fold(data, *, training_config=TrainingConfig(), mc_samples=1000,
     for position, (origin, target) in enumerate(zip(data['dates_test'], data['target_dates_test'])):
         for label, calibrator, identity, prediction, regime in (
                 (name, learned, model_id, summaries['test']['mean'][position],
-                 int(test_regime[position]) if use_pools else None),
+                 int(test_regime[position]) if include_regimes else None),
                 ('zero_mean_reference', historical, 'zero_mean_reference', 0., None)):
             risks = calibrator.forecast(float(prediction), origin=origin, target=target,
                 model_id=identity, confidence_levels=levels, scale=float(test_scale[position]), regime=regime)
@@ -140,8 +141,8 @@ def run_risk_fold(data, *, training_config=TrainingConfig(), mc_samples=1000,
             'Empirical residual stability and predictive risk coverage remain unproven.',
             'A small empirical tail, especially 99%, limits precision.',
             'Dropout spread is diagnostic and is not added again to empirical errors.',
-            'ES reference paths were not generated; no A-S p-value is available.',
-            'The zero-mean reference does not replace the deferred MSGARCH benchmark.',
+            'This training stage does not generate the ES null paths; the evaluator handles them.',
+            'The zero-mean reference is distinct from the separately estimated MSGARCH benchmark.',
         ]}
     for label in (name, 'zero_mean_reference'):
         one = forecasts[(forecasts.model == label) & (forecasts.confidence == levels[0])].set_index('target')

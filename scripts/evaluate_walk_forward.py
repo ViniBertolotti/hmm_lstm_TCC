@@ -78,13 +78,19 @@ def main():
     if output == source:
         raise ValueError("Escolha outra pasta de saída para preservar os relatórios anteriores.")
     output.mkdir(parents=True, exist_ok=True)
-    # These hashes identify the current evaluation inputs, not the provenance
-    # of the original training data, configuration or checkpoint.
+    # Os hashes da avaliação não substituem os registros do treinamento.
+    training_path = source / 'experiment.json'
+    result['summary']['training_provenance_file'] = str(training_path) if training_path.exists() else None
+    if training_path.exists():
+        inputs.append(training_path)
+    if benchmark is not None:
+        inputs.append(args.msgarch_dir / 'msgarch_residuals.parquet')
     result["summary"]["evaluation_inputs_sha256"] = {str(p.relative_to(ROOT)).replace("\\", "/"): sha256(p.read_bytes()).hexdigest()
                                                      for p in inputs}
     result["summary"]["evaluation_sources_sha256"] = {str(p.relative_to(ROOT)).replace("\\", "/"): sha256(p.read_bytes()).hexdigest()
         for p in [Path(__file__), ROOT/"src/risk/evaluation.py", ROOT/"src/risk/backtests.py",
-                  ROOT/"src/risk/null_paths.py", ROOT/"src/data/features.py"]}
+                  ROOT/"src/risk/null_paths.py", ROOT/'src/risk/scenarios.py',
+                  ROOT/'src/risk/calibration.py', ROOT/'src/risk/var_es.py', ROOT/"src/data/features.py"]}
     result["summary"]["evaluation_versions"] = {"numpy": np.__version__, "pandas": pd.__version__, "scipy": scipy.__version__}
     result["summary"]["es_simulations"] = args.es_simulations if null_losses else 0
     result["coverage"].to_csv(output/"backtest_cobertura.csv", index=False)

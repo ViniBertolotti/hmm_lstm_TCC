@@ -9,7 +9,6 @@ from src.models.hmm import (
     select_n_states,
     viterbi_decode,
     _effectively_converged,
-<<<<<<< HEAD
     _BatchedEmissionHMM,
 )
 
@@ -28,11 +27,6 @@ def test_batched_emissions_match_hmmlearn_across_independent_sequences():
     assert not hasattr(batched, '_emission_cache')
 
 
-=======
-)
-
-
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 def test_iteration_limit_is_not_convergence():
     from types import SimpleNamespace
     for history in ([1.], [1., 3.], [3., 2.]):

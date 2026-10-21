@@ -1,4 +1,4 @@
-# Configuração central do projeto — ajuste aqui, não no código
+# Configurações de coleta e modelagem; ver entradas efetivamente usadas no README.
 
 sample:
   start_date: "2005-01-01"
@@ -38,7 +38,7 @@ macro_features:
     - ipca
     - ibc_br
   external:
-    - embi_plus
+    - embi_plus  # previsto, ainda não implementado
     - us_treasury_10y
     - dxy
 

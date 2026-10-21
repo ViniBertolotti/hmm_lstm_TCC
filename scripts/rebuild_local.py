@@ -29,59 +29,42 @@ def main():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, target)
     manifest = {'started_utc': stamp, 'status': 'running',
-                'futures_policy': 'unadjusted_yahoo_proxy_pending_verified_roll_factors',
+                'futures_policy': 'pysystemtrade_multiple_prices_ratio_adjusted',
                 'scope': 'exploratory_in_sample', 'inputs_sha256': {}}
-    for path in sorted((ROOT / 'data/raw').glob('*')):
-        if path.is_file() and path.suffix in ('.parquet', '.xlsx'):
-            manifest['inputs_sha256'][path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    for path in sorted((ROOT / 'data/raw').rglob('*')):
+        if path.is_file() and path.suffix.lower() in ('.parquet', '.xlsx', '.csv', '.json'):
+            key = path.relative_to(ROOT / 'data/raw').as_posix()
+            manifest['inputs_sha256'][key] = hashlib.sha256(path.read_bytes()).hexdigest()
     out = ROOT / 'reports/tables/rebuild_manifest.json'
     out.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
-<<<<<<< HEAD
     try:
         environment = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'], text=True)
         (ROOT / 'requirements-lock.txt').write_text(environment, encoding='utf-8')
         manifest['completed_notebooks'] = []
-=======
-    environment = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'], text=True)
-    (ROOT / 'requirements-lock.txt').write_text(environment, encoding='utf-8')
-    try:
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
         for name in ('02_feature_engineering', '03_hmm_regimes'):
             path = ROOT / 'notebooks' / (name + '.ipynb')
             nb = nbformat.read(path, as_version=4)
             client = NotebookClient(nb, timeout=3600, resources={'metadata': {'path': str(ROOT / 'notebooks')}})
             def progress(cell, cell_index, **kwargs):
                 if cell.cell_type == 'code':
-<<<<<<< HEAD
                     manifest.update(current_notebook=name, current_cell=cell_index,
                                     updated_utc=datetime.now(timezone.utc).isoformat())
                     out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
-=======
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
                     print(f'{name}: célula {cell_index}', flush=True)
             client.on_cell_start = progress
             print(f'Executando {name}', flush=True)
             try:
                 client.execute()
-<<<<<<< HEAD
                 manifest['completed_notebooks'].append(name)
             finally:
                 nbformat.write(nb, path)
     except BaseException as exc:
-=======
-            finally:
-                nbformat.write(nb, path)
-    except Exception as exc:
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
         manifest.update(status='failed', error=str(exc))
         raise
     else:
         manifest.update(status='complete', finished_utc=datetime.now(timezone.utc).isoformat())
     finally:
-<<<<<<< HEAD
         manifest['finished_utc'] = datetime.now(timezone.utc).isoformat()
-=======
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
         out.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
 
 

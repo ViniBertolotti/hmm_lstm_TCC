@@ -1,6 +1,6 @@
 # Acompanhamento do TCC
 
-Atualizado em 20/10/2026. Entrega prevista: 01/12/2026.
+Atualizado em 21/10/2026. Entrega prevista: 01/12/2026.
 
 ## Situação do experimento
 
@@ -11,7 +11,8 @@ por ativo, SHAP, PIT e CRPS. Os comandos estão no [README](README.md).
 
 As tabelas em `reports/tables/final/` são a referência para a redação.
 Rodadas anteriores e registros de conferência ficam em
-`reports/archive/2026-10-20_limpeza/`.
+`reports/archive/`. As correções de execução e documentação de 21/10 ficam em
+`reports/archive/correcoes_20261021/`.
 
 ## Resultados a discutir
 
@@ -34,6 +35,12 @@ O MS-GARCH tem o menor CRPS médio e PIT marginal mais próximo da uniforme
 Portanto, os diagnósticos de densidade também precisam ser discutidos em
 conjunto. Não rejeitar cobertura não demonstra equivalência entre modelos.
 
+Na rodada de referência, os 289 dias de estresse usaram a cauda conjunta por
+falta de erros do estado. A comparação com calibração conjunta mantém as
+previsões das redes e altera apenas a regra de seleção dos erros. Essa análise
+separa a comparação das entradas de regime da mudança na calibração da cauda.
+O MS-GARCH usa resíduos do desenvolvimento; as redes usam o bloco de calibração.
+
 ## Decisões metodológicas para o texto
 
 - Descrever o agregado como índice de preços em reais com sete pesos iguais,
@@ -55,19 +62,23 @@ conjunto. Não rejeitar cobertura não demonstra equivalência entre modelos.
 
 ## Pendências para a entrega
 
-- [ ] Revisar com o orientador o título e a formulação de H1–H3. A versão
-  integrada alterou H3; a discussão deve registrar essa diferença em relação
-  ao pré-projeto, sem reformular hipóteses para acomodar os resultados.
-- [ ] Redigir resultados e discussão a partir das tabelas consolidadas.
-- [ ] Atualizar a metodologia do documento integrado conforme a execução final.
+- [x] Retomar H1–H3 do pré-projeto no documento integrado, com registro da
+  formulação intermediária de H3. Não foi realizado teste de não inferioridade econômica.
+- [ ] Revisar com o orientador o título e a interpretação de H1–H3.
+- [x] Redigir resultados e discussão a partir das tabelas consolidadas (seção 3.12).
+- [x] Atualizar a metodologia com FHS, calibração, MS-GARCH e SHAP executados.
+- [x] Resolver os conflitos de merge e validar a suíte: 118 testes passaram.
+- [x] Registrar configuração, versões, hashes e checkpoints nas novas execuções;
+  impedir retomada incompatível e conferir a integridade dos artefatos.
+- [x] Corrigir Berkowitz para não ligar sessões separadas por lacunas.
 - [ ] Confirmar com o orientador a escolha dos futuros e as condições de uso
   da base pública. Manter CEPEA como análise separada (`scripts/pilot_cepea.py`).
 - [ ] Discutir a interpretação dos quatro estados do HMM descritivo. O estado
   de maior volatilidade inclui recuperações; estresse não significa queda.
 - [ ] Revisar citações, referências, apêndices e formatação pelo manual do curso.
-- [ ] Abrir o documento integrado no Word, atualizar o sumário e conferir a paginação.
-- [ ] Atualizar o pôster com a rodada que inclui MS-GARCH; a versão de 19/10
-  ainda apresenta essa etapa como pendente. Incluir o e-mail do orientador.
+- [x] Atualizar o sumário no Word e conferir a paginação do documento integrado (45 páginas).
+- [x] Atualizar o pôster com o benchmark MS-GARCH executado e conferir o layout.
+- [ ] Incluir o e-mail do orientador no pôster, após confirmação do endereço.
 - [ ] Obter a revisão do orientador e preparar os arquivos de entrega.
 
 ## Prazo de revisão

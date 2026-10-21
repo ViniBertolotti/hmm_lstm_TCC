@@ -12,6 +12,7 @@ dia). Para cada dia:
   Diebold–Mariano.
 """
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 
@@ -35,29 +36,46 @@ def crps_ensemble(scenarios, realized):
     return float(np.mean(np.abs(x - realized)) - spread / 2)
 
 
-def berkowitz_test(pit):
+def berkowitz_test(pit, *, sessions=None):
     """Berkowitz (2001): z = Φ⁻¹(u) deve ser N(0,1) i.i.d.
 
     Ajusta z_t = μ + ρ(z_{t-1} − μ) + σε por máxima verossimilhança condicional e testa
-    μ=0, σ=1, ρ=0 conjuntamente (LR com 3 g.l.). Assume os dias consecutivos da amostra;
-    lacunas de calendário são ignoradas.
+    μ=0, σ=1, ρ=0 conjuntamente (LR com 3 g.l.). Com calendário, usa somente
+    pares de sessões adjacentes. Sem calendário, o vetor deve ser contíguo.
     """
-    u = np.clip(np.asarray(pit, dtype=float), 1e-10, 1 - 1e-10)
+    values = np.asarray(pit, dtype=float)
+    if values.ndim != 1 or not np.isfinite(values).all() or ((values < 0) | (values > 1)).any():
+        raise ValueError('PIT deve ser um vetor finito entre zero e um.')
+    adjacent = np.ones(max(0, len(values) - 1), dtype=bool)
+    if sessions is not None:
+        if not isinstance(pit, pd.Series) or not isinstance(pit.index, pd.DatetimeIndex):
+            raise ValueError('Informe PIT como Series com datas ao utilizar calendário.')
+        calendar = pd.DatetimeIndex(sessions)
+        for dates in (pit.index, calendar):
+            if dates.hasnans or dates.has_duplicates or not dates.is_monotonic_increasing:
+                raise ValueError('Datas devem ser únicas, crescentes e completas.')
+        positions = calendar.get_indexer(pit.index)
+        if (positions < 0).any():
+            raise ValueError('PIT contém data fora do calendário.')
+        adjacent = np.diff(positions) == 1
+    u = np.clip(values, 1e-10, 1 - 1e-10)
     z = stats.norm.ppf(u)
-    if len(z) < 10:
-        raise ValueError("Amostra pequena demais para o teste de Berkowitz.")
-    y, x = z[1:], z[:-1]
+    if len(z) < 10 or adjacent.sum() < 9:
+        raise ValueError("Amostra pequena demais para Berkowitz: exige nove pares adjacentes.")
+    y, x = z[1:][adjacent], z[:-1][adjacent]
     design = np.column_stack([np.ones_like(x), x])
     beta, *_ = np.linalg.lstsq(design, y, rcond=None)
     resid = y - design @ beta
     sigma2 = resid.var()
+    if sigma2 <= 0:
+        raise ValueError('Variância residual nula no teste de Berkowitz.')
     loglik_alt = -0.5 * len(y) * (np.log(2 * np.pi * sigma2) + 1)
     loglik_null = -0.5 * len(y) * np.log(2 * np.pi) - 0.5 * np.sum(y**2)
     lr = float(2 * (loglik_alt - loglik_null))
     rho = float(beta[1])
     return {"mu": float(beta[0] / (1 - rho)) if abs(rho) < 1 else float("nan"), "rho": rho,
             "sigma": float(np.sqrt(sigma2)), "lr": lr, "p_value": float(stats.chi2.sf(lr, 3)),
-            "n": int(len(y))}
+            "n": int(len(y)), 'n_gap_pairs_excluded': int((~adjacent).sum())}
 
 
 def ks_uniform(pit):

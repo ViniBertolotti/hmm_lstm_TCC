@@ -12,6 +12,6 @@ As entradas de Rabbani e Sarkar da versão anterior apresentavam divergências e
 
 O capítulo distingue retorno, volatilidade, risco de cauda e incerteza do modelo. Na revisão final, manter a distinção entre MC Dropout e distribuição de perdas, assim como entre cobertura, equivalência e superioridade estatística.
 
-O capítulo já foi integrado ao projeto. As antigas pendências de integração da carteira, do tratamento de ausências e da metodologia devem ser conferidas na versão integrada à luz da execução final descrita no README e no PLANO.
+O capítulo já foi integrado ao projeto. Em 21/10/2026, a metodologia integrada foi alinhada à carteira, ao tratamento causal de ausências e à avaliação executada. A comparação com calibração conjunta é apresentada separadamente da especificação principal. A descrição operacional está no README e no PLANO.
 
 A conferência anterior usou uma prévia alternativa do DOCX; a paginação definitiva ainda precisa ser verificada no Word e comparada ao manual do curso. Registros da conferência estão em reports/archive/2026-10-20_limpeza/auditorias/.

@@ -11,6 +11,7 @@ CRPS contra o MS-GARCH e entre as redes). O regime de estresse é o mesmo da ava
 """
 import argparse
 import json
+from hashlib import sha256
 from pathlib import Path
 import sys
 
@@ -32,6 +33,7 @@ PAIRS = (("hmm_lstm", "ms_garch"), ("lstm", "ms_garch"), ("zero_mean_reference",
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-dir", type=Path, default=ROOT / "reports/tables/walk_forward")
+    parser.add_argument('--output-dir', type=Path)
     parser.add_argument("--msgarch-dir", type=Path, default=MSGARCH_DIR)
     parser.add_argument("--min-regime-pool", type=int, default=100)
     parser.add_argument("--dm-max-lag", type=int, default=5)
@@ -70,11 +72,14 @@ def main():
     for segment, dates in segments.items():
         sub = daily[daily.target.isin(dates)]
         for model, d in sub.groupby("model"):
-            ks, bk = ks_uniform(d.pit), berkowitz_test(d.sort_values("target").pit)
+            ks = ks_uniform(d.pit)
+            bk = berkowitz_test(d.sort_values('target').set_index('target').pit, sessions=calendar)
             summary.append({"segmento": segment, "modelo": model, "n": len(d), "crps_medio": d.crps.mean(),
                             "ks": ks["statistic"], "ks_p": ks["p_value"], "berkowitz_lr": bk["lr"],
                             "berkowitz_p": bk["p_value"], "berkowitz_mu": bk["mu"], "berkowitz_sigma": bk["sigma"],
-                            "berkowitz_rho": bk["rho"], "pit_abaixo_5%": (d.pit < .05).mean(),
+                            "berkowitz_rho": bk["rho"], 'berkowitz_n_pairs': bk['n'],
+                            'berkowitz_gap_pairs_excluded': bk['n_gap_pairs_excluded'],
+                            "pit_abaixo_5%": (d.pit < .05).mean(),
                             "pit_acima_95%": (d.pit > .95).mean()})
         crps = sub.pivot(index="target", columns="model", values="crps")
         for a, b in PAIRS:
@@ -83,11 +88,21 @@ def main():
                                 "diferenca_a_menos_b": dm["mean_loss_a_minus_b"], "dm": dm["statistic"],
                                 "dm_p": dm["p_value_two_sided"], "leitura": "diferença positiva favorece b"})
 
-    out = source / "density"
-    out.mkdir(exist_ok=True)
+    out = args.output_dir or source / 'density'
+    out.mkdir(parents=True, exist_ok=True)
     daily.to_parquet(out / "pit_crps.parquet", index=False)
     pd.DataFrame(summary).to_csv(out / "resumo.csv", index=False)
     pd.DataFrame(comparisons).to_csv(out / "crps_dm.csv", index=False)
+    inputs = [source / 'manifest.json', *source.glob('forecasts_fold*.parquet'),
+              *source.glob('calibration_fold*.parquet'),
+              msgarch_dir / 'forecasts_msgarch.parquet', msgarch_dir / 'msgarch_residuals.parquet']
+    metadata = {'berkowitz_calendar': 'adjacent_sessions_only',
+                'seed': args.seed, 'dm_max_lag': args.dm_max_lag,
+                'inputs_sha256': {str(p): sha256(p.read_bytes()).hexdigest() for p in inputs},
+                'sources_sha256': {str(p): sha256(p.read_bytes()).hexdigest() for p in
+                    [Path(__file__), ROOT / 'src/risk/density.py', ROOT / 'src/risk/scenarios.py',
+                     ROOT / 'src/risk/backtests.py', ROOT / 'src/risk/calibration.py', ROOT / 'src/risk/var_es.py']}}
+    (out / 'manifest.json').write_text(json.dumps(metadata, indent=2), encoding='utf-8')
     pd.set_option("display.width", 220)
     print(pd.DataFrame(summary).query("segmento == 'todos'").round(4).to_string(index=False))
     print(pd.DataFrame(comparisons).query("segmento == 'todos'").round(6).to_string(index=False))

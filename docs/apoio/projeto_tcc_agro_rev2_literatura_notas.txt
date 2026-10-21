@@ -1,14 +1,18 @@
 PROJETO INTEGRADO — NOTAS DE REVISÃO
 
 Arquivo: docs/projeto_tcc_agro_rev2_literatura.docx.
-Versão do documento: 19/10/2026. Notas atualizadas em 20/10/2026.
+Versão do documento revisada em 21/10/2026.
 
 A versão integra a revisão narrativa de 11 seções e 34 referências, cinco equações editáveis e dez apêndices com sínteses de estudos. Introdução, objetivos e metodologia foram ajustados durante a integração. O pré-projeto, a revisão anterior e o capítulo separado foram preservados.
 
-O documento antecede a consolidação do experimento. Passagens que tratam a execução do MS-GARCH e a reconstrução dos futuros como pendentes precisam ser atualizadas. O fluxo executado e as tarefas restantes estão em README.md e PLANO.md.
+Introdução, hipóteses e metodologia foram alinhadas ao experimento realizado: índice em reais, amostra efetiva de 2007 a 2024, 23 janelas, FHS-EWMA, MS-GARCH e análise SHAP nas janelas 14 e 20. O alvo da rede é dividido pelo desvio-padrão do treino, sem centralização.
 
-Conferir a formulação de H3 com o pré-projeto: ela foi alterada na versão integrada. A tabela final T5 usa o critério do pré-projeto. A redação de resultados precisa explicitar essa diferença.
+H1–H3 retomam os critérios do pré-projeto. O texto registra que a formulação intermediária de H3 como não inferioridade econômica não foi testada. O teste DM compara precisão; ausência de rejeição não prova equivalência.
 
-Ao abrir no Word, atualizar o sumário inteiro e conferir os campos de numeração, as remissões e a paginação. A conferência anterior usou uma prévia alternativa; a normalização final depende do manual do curso.
+O texto distingue a comparação principal, que também muda a regra da cauda, da análise com calibração conjunta. Registra ainda o uso da cauda completa nos 289 dias de estresse da rodada de referência, as limitações dos p-valores de ES e o tratamento de lacunas no Berkowitz.
 
-Os comentários da revisão anterior permanecem nos documentos originais. Os registros de conferência foram arquivados em reports/archive/2026-10-20_limpeza/auditorias/.
+As cópias de segurança e a conferência desta revisão ficam em reports/archive/correcoes_20261021/. A revisão anterior do projeto é histórica e está sem os comentários e as marcações do Claude. O pré-projeto original permanece intacto.
+
+A seção 3.12 reúne os resultados, a comparação com calibração conjunta e as limitações. O sumário foi atualizado no Word; o documento tem 45 páginas. As 23 janelas foram executadas novamente, os notebooks 06 e 09 tiveram suas saídas atualizadas e as tabelas finais foram regeneradas. A conferência local está registrada em reports/archive/correcoes_20261021/validation.json.
+
+Conferir a normalização pelo manual do curso e a redação com o orientador. A exportação Bloomberg e as condições de uso das fontes continuam sendo dependências externas do estudo.

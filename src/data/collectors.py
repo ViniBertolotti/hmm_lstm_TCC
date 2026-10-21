@@ -109,7 +109,6 @@ def adjust_ohlc_roll(ohlc: pd.DataFrame, *, roll_factors: pd.Series | None = Non
     return adjusted
 
 
-<<<<<<< HEAD
 def load_public_futures_close(path: str | os.PathLike) -> pd.DataFrame:
     """Índice de preço do futuro já ajustado por rolagem (só fechamento).
 
@@ -122,8 +121,6 @@ def load_public_futures_close(path: str | os.PathLike) -> pd.DataFrame:
     return daily[["price_index"]].rename(columns={"price_index": "Close"}).dropna().sort_index()
 
 
-=======
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 def collect_bcb_sgs(start: str, end: str) -> pd.DataFrame:
     """Baixa Selic, IPCA e IBC-Br do SGS/BCB (via pacote `python-bcb`).
 

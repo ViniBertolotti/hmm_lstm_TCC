@@ -1,13 +1,12 @@
-"""Detecção de regimes de mercado via Hidden Markov Model gaussiano (Semana 4).
+"""Estimação e filtragem de regimes por Hidden Markov Model gaussiano.
 
 Especificação vem do pré-projeto (`docs/pre_projeto_original.docx`, seção 3.3):
 HMM gaussiano sobre observações multivariadas (retorno agregado da carteira +
 medidas de volatilidade realizada), 2-4 estados via BIC/AIC, Baum-Welch com
 múltiplas inicializações, Viterbi para o conjunto de treino (caracterização),
 Forward para inferência prospectiva (sem lookahead), robustez via bootstrap
-em blocos. Esta é a versão de fit único/exploratório da Semana 4 — o refit
-walk-forward de verdade (para não vazar informação futura para o LSTM) é
-escopo da Semana 6.
+em blocos. O notebook 03 usa esses métodos na análise descritiva; o módulo
+de datasets refaz o ajuste no treino de cada janela para a previsão.
 """
 from __future__ import annotations
 
@@ -16,7 +15,6 @@ import pandas as pd
 from hmmlearn.hmm import GaussianHMM
 from sklearn.metrics import adjusted_rand_score
 from scipy.special import logsumexp as _logsumexp
-<<<<<<< HEAD
 from threadpoolctl import threadpool_limits
 
 
@@ -43,8 +41,6 @@ class _BatchedEmissionHMM(GaussianHMM):
         start = self._emission_offset
         self._emission_offset += len(X)
         return self._emission_cache[start:self._emission_offset]
-=======
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 
 
 def _sequence_lengths(n_obs: int, lengths=None) -> list[int]:
@@ -62,10 +58,7 @@ def _effectively_converged(model: GaussianHMM) -> bool:
     return 0 <= gain < model.tol
 
 
-<<<<<<< HEAD
 @threadpool_limits.wrap(limits=1, user_api="blas")
-=======
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 def fit_gaussian_hmm(
     observations: np.ndarray,
     n_states: int,
@@ -89,11 +82,7 @@ def fit_gaussian_hmm(
     best_model, best_score = None, -np.inf
 
     for _ in range(n_init):
-<<<<<<< HEAD
         model = _BatchedEmissionHMM(
-=======
-        model = GaussianHMM(
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
             n_components=n_states,
             covariance_type="full",
             n_iter=n_iter,

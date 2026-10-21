@@ -53,8 +53,17 @@ python -m pip install -r requirements.txt
 ```
 
 O arquivo `requirements-lock.txt` registra as versões do ambiente usado.
-Para o benchmark, instale R e os pacotes `MSGARCH` e `arrow`.
+Para o benchmark, instale R e os pacotes `MSGARCH`, `arrow` e `jsonlite`,
+com `Rscript` disponível no PATH (ou use o caminho completo do executável).
 As versões da execução local ficam em `reports/tables/msgarch/versions.txt`.
+Na conferência de 21/10, os pacotes R foram instalados em uma biblioteca local.
+Para reutilizá-la nesta máquina, antes de executar o R:
+
+```powershell
+$env:R_LIBS_USER = "$PWD/reports/archive/correcoes_20261021/r-library"
+```
+
+Essa pasta não é versionada; em outra máquina, instale os três pacotes no R.
 
 Os dados não são versionados. O notebook 01 faz a coleta; a atualização do FRED
 exige `FRED_API_KEY` no `.env` (ver `.env.example`). A volatilidade implícita
@@ -81,7 +90,7 @@ não são usados como entrada da avaliação fora da amostra.
 Depois, execute o experimento e a avaliação:
 
 ```powershell
-python scripts/run_walk_forward.py
+python scripts/run_walk_forward.py --resume
 python scripts/msgarch_inputs.py
 Rscript r/msgarch_benchmark.R
 python scripts/msgarch_forecasts.py
@@ -89,11 +98,40 @@ python scripts/evaluate_walk_forward.py
 python scripts/evaluate_density.py
 ```
 
+`--resume` também inicia uma pasta vazia. Em uma pasta existente, exige o
+mesmo código, dados, versões e configuração registrados em `experiment.json`.
+Só pula uma janela quando as duas redes, previsões, calibração e checkpoints
+estão presentes e seus hashes conferem. Saídas históricas sem esse registro
+não são autenticadas retroativamente. Para mudar parâmetros, use outra pasta
+com `--output-dir`; os scripts de MS-GARCH e avaliação aceitam os caminhos
+de entrada e saída correspondentes.
+
+Cada janela salva o manifesto completo e os pesos das duas redes. O benchmark
+recebe estados, níveis de confiança e semente em `inputs_config.json`, gerado
+do YAML. `inputs_manifest.json` e `benchmark_manifest.json` registram sua
+preparação e conversão. O HMM usa os estados do YAML e seleção por BIC;
+covariância diferente de `full` e especificações de benchmark não implementadas
+são recusadas.
+
 Cada janela tem cinco anos de desenvolvimento e seis meses de teste, com passo
 de seis meses. Os últimos 252 pregões do desenvolvimento são reservados à
 calibração; a validação ocupa 15% do período restante. Seleção de variáveis,
 padronização e HMM são ajustados no treino. O regime usado na previsão vem do
 filtro Forward. A configuração da LSTM é fixa, sem busca em grade.
+
+A comparação principal permite caudas por regime apenas na HMM-LSTM. Para
+comparar as redes com a mesma regra de calibração, sem repetir o treino:
+
+```powershell
+python scripts/build_shared_calibration.py --output-dir reports/tables/calibracao_conjunta
+python scripts/evaluate_walk_forward.py --input-dir reports/tables/calibracao_conjunta
+```
+
+Essa ablação mantém médias previstas, datas e realizações, recalculando apenas
+o risco da HMM-LSTM com todos os erros. Uma nova execução com
+`run_walk_forward.py --shared-calibration --output-dir PASTA_NOVA` aplica a mesma
+regra desde o treinamento. A separação por regime não é usada quando faltam
+100 erros; na rodada de referência, isso aconteceu nos 289 dias de estresse.
 
 Para a robustez por ativo, repita as etapas com `--target-asset` conforme os
 exemplos em `scripts/summarize_univariate.py`. Após concluir essas avaliações:
@@ -109,6 +147,16 @@ As previsões ficam em `reports/tables/walk_forward/`, os backtests em
 `walk_forward/density/`. As tabelas consolidadas são gravadas em
 `reports/tables/final/`. Os notebooks 04 a 09 apresentam as análises e geram
 figuras em `reports/figures/`.
+
+O Berkowitz usa apenas pares adjacentes do calendário B3, sem juntar dias
+separados por lacunas. As quantidades de pares e exclusões ficam nas tabelas
+de densidade. O KS continua sendo um diagnóstico marginal, sem ajuste para
+dependência temporal. Os p-valores de ES usam cenários diários e previsões
+fixas, sem simular toda a reestimação dos modelos.
+
+O YAML reúne configurações de coleta e modelagem, mas não indica que toda
+variável listada entrou na rede. EMBI+ não foi implementado; as séries macro
+coletadas não são incorporadas automaticamente ao painel de entradas.
 
 ## Organização
 

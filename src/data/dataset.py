@@ -1,4 +1,4 @@
-"""Montagem do dataset de modelagem em janelas walk-forward (Semana 6).
+"""Preparação dos dados em janelas walk-forward.
 
 Regra central: tudo o que é estimado a partir dos dados — seleção de features
 (missing + VIF), padronização e o HMM (inclusive o número de estados) — é

@@ -57,3 +57,15 @@ def test_forecast_targets_units_and_empirical_tail_are_recorded_without_es_pvalu
         for level in model.values():
             assert level['p_value_lower_tail'] is None
     assert report['training']['best_epoch'] <= 2
+
+
+def test_shared_calibration_keeps_stress_labels_without_regime_pools():
+    data = data_fixture()
+    result = run_risk_fold(data, training_config=TrainingConfig(hidden=(4, 3),
+        max_epochs=2, patience=1), mc_samples=20, include_regimes=True,
+        regime_pools=False, dm_max_lag=2)
+    predictions = result['forecasts'].query("model == 'hmm_lstm'")
+    assert predictions.regime.notna().all()
+    assert set(predictions.residual_pool) == {'all'}
+    assert 'regime' not in result['calibration']
+    assert 'regime_pools' not in result['manifest']['risk_method']

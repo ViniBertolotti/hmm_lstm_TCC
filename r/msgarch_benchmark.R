@@ -25,8 +25,13 @@ returns <- as.data.frame(read_parquet(file.path(dir, "inputs_returns.parquet")))
 folds <- as.data.frame(read_parquet(file.path(dir, "inputs_folds.parquet")))
 targets <- as.data.frame(read_parquet(file.path(dir, "inputs_targets.parquet")))
 
-states_grid <- c(2L, 3L)
-levels <- c(0.95, 0.99)
+config <- jsonlite::fromJSON(file.path(dir, "inputs_config.json"))
+states_grid <- as.integer(config$states_range)
+levels <- as.numeric(config$confidence_levels)
+if (!length(states_grid) || any(states_grid < 2) || anyDuplicated(states_grid) ||
+    !length(levels) || any(levels <= 0 | levels >= 1) || anyDuplicated(levels)) stop("Configuração inválida")
+if (config$distribution != "student_t" || config$method != "FHS") stop("Especificação não implementada")
+set.seed(as.integer(config$random_seed))
 grid <- seq(-30, 30, by = 0.01)  # log-retorno em %
 burn_in <- 21L                   # resíduos iniciais dependem da variância inicial
 
@@ -97,7 +102,10 @@ for (i in seq_len(nrow(folds))) {
     }
     out
   }))
-  colnames(par_risk) <- c("var95_param", "es95_param", "var99_param", "es99_param")
+  colnames(par_risk) <- unlist(lapply(levels, function(a) {
+    tag <- format(100 * a, trim = TRUE, scientific = FALSE)
+    c(paste0("var", tag, "_param"), paste0("es", tag, "_param"))
+  }))
   fc_out[[i]] <- data.frame(fold = f$fold, origin = tg$origin, target = tg$target, K = K,
                             vol_pct = vol[rows], prob_high_state = pred_prob[rows, high_state],
                             par_risk)
@@ -110,4 +118,6 @@ for (i in seq_len(nrow(folds))) {
 write_parquet(do.call(rbind, fits_out), file.path(dir, "msgarch_fits.parquet"))
 write_parquet(do.call(rbind, fc_out), file.path(dir, "msgarch_forecasts.parquet"))
 write_parquet(do.call(rbind, res_out), file.path(dir, "msgarch_residuals.parquet"))
-writeLines(c(R.version.string, paste("MSGARCH", packageVersion("MSGARCH"))), file.path(dir, "versions.txt"))
+writeLines(c(R.version.string, paste("MSGARCH", packageVersion("MSGARCH")),
+             paste("arrow", packageVersion("arrow")), paste("jsonlite", packageVersion("jsonlite"))),
+           file.path(dir, "versions.txt"))

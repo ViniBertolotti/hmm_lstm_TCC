@@ -1,9 +1,9 @@
-"""Engenharia de features (Semana 3, Passada 1) — retornos, volatilidade e liquidez.
+"""Cálculo de retornos, volatilidade e medidas de liquidez por ativo.
 
 Cada função opera sobre um único ativo (uma série ou um DataFrame OHLCV) e é
 pura (sem I/O): a orquestração multi-ativo/multi-fonte fica no notebook
 `02_feature_engineering.ipynb`. `build_asset_features` combina todas as
-funções abaixo na ordem descrita em `PLANO.md` > Semana 3.
+funções abaixo para montar o painel de entradas.
 """
 from __future__ import annotations
 
@@ -30,11 +30,11 @@ def align_and_fill_ohlc(ohlc: pd.DataFrame, start: str, end: str, max_gap_days: 
 
     Só usa informação passada: preenche os primeiros `max_gap_days` dias de
     pregão por *forward-fill* (carrega o último preço observado — o retorno
-    do ativo nesse dia fica implicitamente 0%, uma aproximação honesta para
-    "não sabemos o que aconteceu"). Nunca interpola linearmente nem usa
+    do ativo nesse dia fica implicitamente 0%). A ausência não corresponde
+    a uma observação de negociação. Nunca interpola linearmente nem usa
     *backward-fill* — isso usaria um preço futuro para preencher o passado
     (lookahead bias). A partir do dia seguinte ao limite, mantém `NaN` (mesma
-    política de "NaN estrutural, trim só no dataset final de modelagem" já
+    política de preservação de ausências até a montagem das sequências, já
     usada para o burn-in do GARCH e para o `implied_vol_br` pré-2015).
 
     Um dia em que a bolsa de origem do ativo (CBOT/ICE, para os futuros)
@@ -132,7 +132,7 @@ def corwin_schultz_spread(ohlc: pd.DataFrame) -> pd.Series:
     """Spread de bid-ask implícito de Corwin & Schultz (2012), via High/Low de 2 dias.
 
     Proxy de liquidez: o Yahoo Finance não fornece bid/ask histórico diário,
-    só OHLCV — este estimador é o método acadêmico padrão para essa limitação.
+    só OHLCV. O estimador usa a amplitude dos preços como aproximação do spread.
     Valores negativos (artefato do estimador em dias de baixa volatilidade)
     são zerados, conforme a prática usual na literatura.
     """
@@ -147,7 +147,6 @@ def corwin_schultz_spread(ohlc: pd.DataFrame) -> pd.Series:
     return spread.clip(lower=0).rename("corwin_schultz_spread")
 
 
-<<<<<<< HEAD
 def ewma_volatility(return_1d: pd.Series, lam: float = 0.94, warmup: int = 21) -> pd.Series:
     """Volatilidade diária EWMA (RiskMetrics) prevista para t+1 com retornos até t.
 
@@ -172,8 +171,6 @@ def ewma_volatility(return_1d: pd.Series, lam: float = 0.94, warmup: int = 21) -
     return pd.Series(out, index=return_1d.index, name="ewma_vol")
 
 
-=======
->>>>>>> 82a779c875e26e294f16e974965f241e480e5012
 def rolling_skew_kurtosis(return_1d: pd.Series, windows: tuple[int, ...] = (21, 63)) -> pd.DataFrame:
     """Assimetria e curtose móveis do retorno diário."""
     out = {}

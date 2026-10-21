@@ -107,12 +107,14 @@ def hypotheses(cov, dm):
         rows.append({"hipótese": "H2", "nível": tag,
                      "critério (pré-projeto)": "no estresse, menor erro de cobertura e menos agrupamento que o MS-GARCH",
                      "evidência": f"violações {h:.1%} (Kupiec p={kh:.2f}) vs {m:.1%} (p={km:.2f})",
-                     "conclusão": "não sustentada" if abs(h - (1 - level)) >= abs(m - (1 - level)) else "sustentada"})
+                     "conclusão": "não sustentada" if abs(h - (1 - level)) >= abs(m - (1 - level))
+                                  else "menor desvio observado; agrupamento e diferença formal precisam ser avaliados"})
         (pq, dq), (pf, df) = d("demais_regimes", level, "quantilico_var"), d("demais_regimes", level, "fz0_var_es")
         rows.append({"hipótese": "H3", "nível": tag,
                      "critério (pré-projeto)": "nos regimes calmos, sem perda significativa vs benchmark (DM)",
                      "evidência": f"DM p={pq:.4f} (quantílico), {pf:.4f} (FZ0); HMM-LSTM {'pior' if dq > 0 else 'melhor'}",
-                     "conclusão": "rejeitada" if pq < .05 and dq > 0 else "não rejeitada"})
+                     "conclusão": "rejeitada" if pq < .05 and dq > 0 else "não rejeitada",
+                     'interpretação': 'Critério original de diferença pelo DM; não testa não inferioridade econômica.'})
     return pd.DataFrame(rows)
 
 

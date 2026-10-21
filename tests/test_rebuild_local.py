@@ -13,6 +13,8 @@ def test_manifest_records_completion_and_interruption(tmp_path, monkeypatch, fai
     for name in ('02_feature_engineering', '03_hmm_regimes'):
         nbformat.write(nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell('pass')]),
                        tmp_path / 'notebooks' / (name + '.ipynb'))
+    (tmp_path / 'data/raw/futures_public').mkdir()
+    (tmp_path / 'data/raw/futures_public/source.csv').write_text('price\n100\n')
     class Client:
         def __init__(self, nb, **kwargs):
             self.nb = nb
@@ -34,3 +36,5 @@ def test_manifest_records_completion_and_interruption(tmp_path, monkeypatch, fai
     assert manifest['finished_utc']
     assert manifest['current_cell'] == 0
     assert len(manifest['completed_notebooks']) == (2 if failure is None else 0)
+    assert manifest['futures_policy'] == 'pysystemtrade_multiple_prices_ratio_adjusted'
+    assert 'futures_public/source.csv' in manifest['inputs_sha256']
