@@ -1,6 +1,6 @@
 # Acompanhamento do TCC
 
-Atualizado em 21/10/2026. Entrega prevista: 01/12/2026.
+Atualizado em 22/10/2026.
 
 ## Situação do experimento
 
@@ -65,7 +65,8 @@ O MS-GARCH usa resíduos do desenvolvimento; as redes usam o bloco de calibraç�
 - [x] Retomar H1–H3 do pré-projeto no documento integrado, com registro da
   formulação intermediária de H3. Não foi realizado teste de não inferioridade econômica.
 - [ ] Revisar com o orientador o título e a interpretação de H1–H3.
-- [x] Redigir resultados e discussão a partir das tabelas consolidadas (seção 3.12).
+- [x] Redigir resultados e discussão a partir das tabelas consolidadas (capítulo 4
+  da versão editorial) e incluir uma conclusão que responda à pergunta de pesquisa.
 - [x] Atualizar a metodologia com FHS, calibração, MS-GARCH e SHAP executados.
 - [x] Resolver os conflitos de merge e validar a suíte: 118 testes passaram.
 - [x] Registrar configuração, versões, hashes e checkpoints nas novas execuções;
@@ -76,8 +77,15 @@ O MS-GARCH usa resíduos do desenvolvimento; as redes usam o bloco de calibraç�
 - [ ] Discutir a interpretação dos quatro estados do HMM descritivo. O estado
   de maior volatilidade inclui recuperações; estresse não significa queda.
 - [ ] Revisar citações, referências, apêndices e formatação pelo manual do curso.
-- [x] Atualizar o sumário no Word e conferir a paginação do documento integrado (45 páginas).
-- [x] Atualizar o pôster com o benchmark MS-GARCH executado e conferir o layout.
+- [x] Atualizar o sumário no Word da versão editorial.
+- [x] Conferir as 46 páginas da versão editorial com imagens geradas pelo Word;
+  manter a conformidade com o manual do curso como pendência separada.
+- [x] Atualizar o pôster com o benchmark MS-GARCH executado.
+- [x] Incluir os ODS 8, 9 e 12, com relação temática indireta e ícones oficiais.
+- [x] Conferir o pôster atualizado no PowerPoint, incluindo os três ODS,
+  os sete rótulos de componentes e os quatro modelos no gráfico.
+- [x] Registrar diagnóstico, alterações por seção, significado preservado,
+  dúvidas e notas editoriais em `docs/apoio/revisao_editorial_20261021.txt`.
 - [ ] Incluir o e-mail do orientador no pôster, após confirmação do endereço.
 - [ ] Obter a revisão do orientador e preparar os arquivos de entrega.
 
@@ -86,6 +94,6 @@ O MS-GARCH usa resíduos do desenvolvimento; as redes usam o bloco de calibraç�
 | Período | Trabalho restante |
 |---|---|
 | Até 01/11 | Validar decisões com o orientador e atualizar a metodologia. |
-| 02–15/11 | Redigir resultados, discussão e limitações. |
+| 02–15/11 | Revisar resultados, discussão, conclusão e limitações com o orientador. |
 | 16–24/11 | Revisar texto, referências, apêndices e pôster. |
 | 25/11–01/12 | Conferir os arquivos finais e entregar. |

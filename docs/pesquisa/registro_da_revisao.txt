@@ -1,6 +1,0 @@
-Revisão preparada em 19/10/2026.
-
-Texto: docs/pesquisa/Risco financeiro no agronegócio.md.
-Fontes e alcance da consulta: docs/apoio/revisao_literatura_fontes.json.
-Registros de conferência: reports/archive/2026-10-20_limpeza/auditorias/.
-Versão integrada ao projeto: docs/projeto_tcc_agro_rev2_literatura.docx.

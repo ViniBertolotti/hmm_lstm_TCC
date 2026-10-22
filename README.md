@@ -171,6 +171,14 @@ coletadas não são incorporadas automaticamente ao painel de entradas.
 - `data/` e `reports/`: entradas e saídas locais, fora do versionamento.
 
 O documento integrado mais recente é
-`docs/projeto_tcc_agro_rev2_literatura.docx`. O pré-projeto e a revisão anterior
-permanecem como histórico. As tarefas para a entrega e a leitura dos resultados
-estão em [PLANO.md](PLANO.md).
+`docs/projeto_tcc_agro_rev3_editorial.docx`. A revisão separa resultados e
+conclusão da metodologia, explicita o objeto da análise SHAP e inclui a avaliação
+do ES na discussão. O diagnóstico, as alterações com original e versão revisada
+e as pendências de confirmação estão em
+`docs/apoio/revisao_editorial_20261021.txt`.
+
+O pôster em `docs/poster_mostraTCC1_2026-2_agro.pptx` acompanha os resultados
+e apresenta os ODS 8, 9 e 12, escolhidos pelo autor. A relação com os ODS é
+temática e indireta; a pesquisa não mede seus impactos sociais ou ambientais.
+O pré-projeto e as versões anteriores permanecem como histórico. As tarefas
+para a entrega e a leitura dos resultados estão em [PLANO.md](PLANO.md).
